@@ -3,7 +3,10 @@ import { AiContextAnnotation, AiContextBlock, Requirement } from './types';
 
 // ── XML block format ──────────────────────────────────────────────────────────
 
-const OUTER_RE = /<(?:pvnc|provenance)>([\s\S]*?)<\/(?:pvnc|provenance)>/g;
+// Opening tag must be the first meaningful content on its line (after optional
+// whitespace and comment markers). This prevents matching tags inside string
+// literals or template expressions in source code.
+const OUTER_RE = /^[ \t]*[*#/]*[ \t]*<(?:pvnc|provenance)>([\s\S]*?)<\/(?:pvnc|provenance)>/gm;
 const LINE_RE = /^[ \t*#/]*?(requirement|reason|invariant|do-not-change|source|see-also):\s*(.*)/gm;
 const REQ_VALUE_RE = /^(\S+)(?:\s+\(([^,)]+?)(?:,\s*([^)]+?))?\))?/;
 const BETWEEN_RE = /^[\s"'`*#/|\\!;.,\-()[\]{}@]*$/;
@@ -210,6 +213,8 @@ function parsePvncAnnotations(text: string, doc: vscode.TextDocument): AiContext
 const cache = new Map<string, { version: number; annotations: AiContextAnnotation[] }>();
 
 export function parseDocument(doc: vscode.TextDocument): AiContextAnnotation[] {
+  if (doc.languageId === 'markdown') return [];
+
   const cacheKey = doc.uri.toString();
   const cached = cache.get(cacheKey);
   if (cached?.version === doc.version) return cached.annotations;
