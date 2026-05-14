@@ -2,7 +2,7 @@
   "name": "provenance",
   "displayName": "Provenance",
   "description": "Embed requirement and compliance traceability directly in your code. Keeps AI assistants from removing load-bearing logic they don't understand.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "etpedror",
   "license": "MIT",
   "icon": "images/icon.png",
