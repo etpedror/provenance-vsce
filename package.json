@@ -1,0 +1,278 @@
+{
+  "name": "provenance",
+  "displayName": "Provenance",
+  "description": "Embed requirement and compliance traceability directly in your code. Keeps AI assistants from removing load-bearing logic they don't understand.",
+  "version": "0.1.0",
+  "publisher": "your-publisher-id",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1a1b2e",
+    "theme": "dark"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/etpedror"
+  },
+  "pricing": "Free",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/etpedror/provenance"
+  },
+  "bugs": {
+    "url": "https://github.com/etpedror/provenance/issues"
+  },
+  "homepage": "https://github.com/etpedror/provenance#readme",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other",
+    "Linters",
+    "Snippets"
+  ],
+  "keywords": [
+    "traceability",
+    "requirements",
+    "compliance",
+    "provenance",
+    "annotations",
+    "ai-context",
+    "ai",
+    "copilot",
+    "claude",
+    "cursor"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "provenance-panel",
+          "title": "Provenance",
+          "icon": "images/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "provenance-panel": [
+        {
+          "id": "provenance.annotationsView",
+          "name": "Annotations"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "provenance.filterAnnotations",
+          "when": "view == provenance.annotationsView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "provenance.analyzeWorkspace",
+          "when": "view == provenance.annotationsView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "provenance.clearFilter",
+          "when": "view == provenance.annotationsView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "provenance.refreshAnnotations",
+          "when": "view == provenance.annotationsView",
+          "group": "navigation@4"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "provenance.addAnnotation",
+        "title": "Provenance: Add annotation"
+      },
+      {
+        "command": "provenance.setupInstructions",
+        "title": "Provenance: Set up AI assistant instructions"
+      },
+      {
+        "command": "provenance.filterAnnotations",
+        "title": "Search annotations",
+        "icon": "$(search)"
+      },
+      {
+        "command": "provenance.analyzeWorkspace",
+        "title": "Provenance: Analyze Workspace",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "provenance.clearFilter",
+        "title": "Clear filter",
+        "icon": "$(close)"
+      },
+      {
+        "command": "provenance.refreshAnnotations",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "configuration": {
+      "title": "Provenance",
+      "properties": {
+        "provenance.gutterIcons": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show gutter icons next to lines covered by a provenance annotation."
+        },
+        "provenance.explorerFileBadges": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show opt-in Provenance badges in the VS Code Explorer for known files only. Files become known when opened or after running Analyze Workspace."
+        },
+        "provenance.warnOnDoNotChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning when editing code guarded by a <do-not-change> annotation."
+        },
+        "provenance.guardedRangeLines": {
+          "type": "number",
+          "default": 30,
+          "description": "How many lines below an annotation are treated as guarded (used for do-not-change warnings and hover). Increase for long functions."
+        },
+        "provenance.ticketSystems": {
+          "type": "object",
+          "description": "Ticket system connections — reserved for hover enrichment in a future release.",
+          "default": {},
+          "properties": {
+            "jira": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string",
+                  "description": "e.g. https://yourcompany.atlassian.net"
+                },
+                "apiToken": {
+                  "type": "string",
+                  "description": "Jira API token (stored in VS Code secret storage in a future release)."
+                }
+              }
+            },
+            "ado": {
+              "type": "object",
+              "properties": {
+                "organisation": {
+                  "type": "string"
+                },
+                "pat": {
+                  "type": "string",
+                  "description": "Azure DevOps personal access token."
+                }
+              }
+            },
+            "github": {
+              "type": "object",
+              "properties": {
+                "owner": {
+                  "type": "string"
+                },
+                "repo": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "colors": [
+      {
+        "id": "provenance.explorerAiForeground",
+        "description": "Explorer badge foreground for known files with AI-authored provenance.",
+        "defaults": {
+          "dark": "#4EC9B0",
+          "light": "#267F68",
+          "highContrast": "#4EC9B0"
+        }
+      },
+      {
+        "id": "provenance.explorerHumanForeground",
+        "description": "Explorer badge foreground for known files with human-authored provenance.",
+        "defaults": {
+          "dark": "#CE9178",
+          "light": "#A31515",
+          "highContrast": "#CE9178"
+        }
+      },
+      {
+        "id": "provenance.explorerMixedForeground",
+        "description": "Explorer badge foreground for known files with mixed AI and human-authored provenance.",
+        "defaults": {
+          "dark": "#C586C0",
+          "light": "#795E26",
+          "highContrast": "#C586C0"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "path": "./syntaxes/ai-context.tmLanguage.json",
+        "scopeName": "markup.pvnc",
+        "injectTo": [
+          "source.python",
+          "source.ts",
+          "source.tsx",
+          "source.js",
+          "source.jsx",
+          "source.java",
+          "source.cs",
+          "source.rust",
+          "source.go",
+          "source.ruby",
+          "source.php",
+          "source.c",
+          "source.cpp",
+          "source.kotlin",
+          "source.swift"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "jest",
+    "lint": "eslint src --ext ts",
+    "generate-icon": "node scripts/generate-icon.mjs",
+    "package": "npm run generate-icon && vsce package",
+    "publish": "npm run generate-icon && vsce publish"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^vscode$": "<rootDir>/src/__mocks__/vscode.ts"
+    },
+    "testMatch": [
+      "<rootDir>/src/**/*.test.ts"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "1.120.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^3.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "sharp": "^0.33.5",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
+}

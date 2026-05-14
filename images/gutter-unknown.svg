@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="none">
+  <!-- Shield — scaled from the extension's main icon shape -->
+  <path d="M 8,1.9 L 13.6,4 L 13.6,9.1 C 13.6,12 10.4,14.1 8,14.8 C 5.6,14.1 2.4,12 2.4,9.1 L 2.4,4 Z"
+    stroke="#6E6E6E" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- < / > at tiny scale -->
+  <polyline points="5.5,6.5 3.8,8 5.5,9.5" stroke="#6E6E6E" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="8.8" y1="10" x2="7.2" y2="6" stroke="#6E6E6E" stroke-width="0.9" stroke-linecap="round"/>
+  <polyline points="10.5,6.5 12.2,8 10.5,9.5" stroke="#6E6E6E" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

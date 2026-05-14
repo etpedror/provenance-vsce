@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 680" fill="none">
+  <path stroke="currentColor" stroke-width="26" stroke-linejoin="round" stroke-linecap="round"
+    d="M 340 80 L 578 168 L 578 388 C 578 508 440 600 340 630 C 240 600 102 508 102 388 L 102 168 Z"/>
+  <path stroke="currentColor" stroke-width="26" stroke-linecap="square" stroke-linejoin="miter"
+    d="M 272 224 L 184 340 L 272 456"/>
+  <line x1="308" y1="456" x2="372" y2="224" stroke="currentColor" stroke-width="26" stroke-linecap="square"/>
+  <path stroke="currentColor" stroke-width="26" stroke-linecap="square" stroke-linejoin="miter"
+    d="M 408 224 L 496 340 L 408 456"/>
+</svg>

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "pvnc",
+  "scopeName": "markup.pvnc",
+  "injectionSelector": "L:comment, L:string",
+  "patterns": [
+    { "include": "#block" },
+    { "include": "#pvnc-req" },
+    { "include": "#pvnc-do-not-change" },
+    { "include": "#pvnc-source" },
+    { "include": "#pvnc-line" }
+  ],
+  "repository": {
+    "block": {
+      "name": "meta.pvnc.block",
+      "begin": "(<)(pvnc|provenance)(>)",
+      "end": "(<\\/)(pvnc|provenance)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.pvnc" },
+        "2": { "name": "entity.name.tag.pvnc keyword.other.pvnc" },
+        "3": { "name": "punctuation.definition.tag.pvnc" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.pvnc" },
+        "2": { "name": "entity.name.tag.pvnc keyword.other.pvnc" },
+        "3": { "name": "punctuation.definition.tag.pvnc" }
+      },
+      "patterns": [
+        { "include": "#line-requirement" },
+        { "include": "#line-do-not-change" },
+        { "include": "#line-invariant" },
+        { "include": "#line-reason" },
+        { "include": "#line-source" },
+        { "include": "#line-see-also" }
+      ]
+    },
+
+    "line-requirement": {
+      "comment": "requirement: USER-1042 (jira, 2024-Q1)",
+      "name": "meta.pvnc.requirement",
+      "match": "^[ \\t*#/]*(requirement)(:)[ \\t]*(\\S+)(?:[ \\t]+(\\()([^,)]+?)(?:(,)[ \\t]*([^)]+?))?(\\)))?",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc support.type.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "entity.name.function.pvnc" },
+        "4": { "name": "punctuation.section.parens.begin.pvnc" },
+        "5": { "name": "support.constant.pvnc" },
+        "6": { "name": "punctuation.separator.pvnc" },
+        "7": { "name": "constant.other.pvnc" },
+        "8": { "name": "punctuation.section.parens.end.pvnc" }
+      }
+    },
+
+    "line-do-not-change": {
+      "comment": "do-not-change: reason text",
+      "name": "meta.pvnc.do-not-change",
+      "match": "^[ \\t*#/]*(do-not-change)(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc invalid.deprecated" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "string.unquoted.pvnc" }
+      }
+    },
+
+    "line-invariant": {
+      "comment": "invariant: some rule",
+      "name": "meta.pvnc.invariant",
+      "match": "^[ \\t*#/]*(invariant)(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc constant.language.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "markup.italic.pvnc" }
+      }
+    },
+
+    "line-reason": {
+      "comment": "reason: human-readable text",
+      "name": "meta.pvnc.reason",
+      "match": "^[ \\t*#/]*(reason)(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "string.unquoted.pvnc" }
+      }
+    },
+
+    "line-source": {
+      "comment": "source: human | ai.claude | ai.copilot …",
+      "name": "meta.pvnc.source",
+      "match": "^[ \\t*#/]*(source)(:)[ \\t]*(\\S+)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc storage.type.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "entity.name.function.pvnc" }
+      }
+    },
+
+    "pvnc-req": {
+      "comment": "# pvnc.req: USER-1092 (jira, 2024-Q1)",
+      "name": "meta.pvnc.pvnc.requirement",
+      "match": "(?:[#*]|\\/\\/)[ \\t]*(pvnc\\.req(?:uirement)?)(:)[ \\t]*(\\S+)(?:[ \\t]+(\\()([^,)]+?)(?:(,)[ \\t]*([^)]+?))?(\\)))?",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc support.type.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "entity.name.function.pvnc" },
+        "4": { "name": "punctuation.section.parens.begin.pvnc" },
+        "5": { "name": "support.constant.pvnc" },
+        "6": { "name": "punctuation.separator.pvnc" },
+        "7": { "name": "constant.other.pvnc" },
+        "8": { "name": "punctuation.section.parens.end.pvnc" }
+      }
+    },
+
+    "pvnc-do-not-change": {
+      "comment": "# pvnc.do-not-change: reason  |  # pvnc.dnc: reason",
+      "name": "meta.pvnc.pvnc.do-not-change",
+      "match": "(?:[#*]|\\/\\/)[ \\t]*(pvnc\\.(?:do-not-change|dnc))(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc invalid.deprecated" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "string.unquoted.pvnc" }
+      }
+    },
+
+    "pvnc-source": {
+      "comment": "# pvnc.source: human | ai.claude",
+      "name": "meta.pvnc.pvnc.source",
+      "match": "(?:[#*]|\\/\\/)[ \\t]*(pvnc\\.source)(:)[ \\t]*(\\S+)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc storage.type.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "entity.name.function.pvnc" }
+      }
+    },
+
+    "pvnc-line": {
+      "comment": "# pvnc.reason | pvnc.invariant | pvnc.see-also — catch-all for remaining keys",
+      "name": "meta.pvnc.pvnc",
+      "match": "(?:[#*]|\\/\\/)[ \\t]*(pvnc\\.(?:reason|invariant|inv|see-also|see))(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "string.unquoted.pvnc" }
+      }
+    },
+
+    "line-see-also": {
+      "comment": "see-also: path/to/file.py#symbol, TICKET-123",
+      "name": "meta.pvnc.see-also",
+      "match": "^[ \\t*#/]*(see-also)(:)[ \\t]*(.*)",
+      "captures": {
+        "1": { "name": "keyword.other.pvnc markup.underline.pvnc" },
+        "2": { "name": "punctuation.separator.key-value.pvnc" },
+        "3": { "name": "markup.underline.link.pvnc string.unquoted.pvnc" }
+      }
+    }
+  }
+}
