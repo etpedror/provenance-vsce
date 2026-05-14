@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { parseDocument } from './parser';
-import { AiContextAnnotation, AiContextBlock } from './types';
+import { AiContextAnnotation, AiContextBlock, TextDocumentLike } from './types';
 
 export type SourceCategory = 'ai' | 'human' | 'unknown';
 
@@ -59,7 +59,7 @@ export function getAnnotationCategory(annotation: AiContextAnnotation): SourceCa
 }
 
 export function computeDocumentMetrics(
-  document: vscode.TextDocument,
+  document: TextDocumentLike,
   annotations = parseDocument(document),
 ): DocumentMetrics {
   const lineCategories = new Map<number, SourceCategory>();

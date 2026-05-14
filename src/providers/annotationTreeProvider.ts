@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseDocument } from '../parser';
-import { AiContextAnnotation, AiContextBlock } from '../types';
+import { AiContextAnnotation, AiContextBlock, TextDocumentLike } from '../types';
+import { RawTextDocument } from '../rawTextDocument';
 import {
   DocumentMetrics,
   WorkspaceMetrics,
@@ -157,7 +158,7 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
     this._onChange.fire(undefined);
   }
 
-  indexDocument(document: vscode.TextDocument): void {
+  indexDocument(document: TextDocumentLike): void {
     if (document.uri.scheme !== 'file') return;
 
     const annotations = parseDocument(document);
@@ -212,13 +213,26 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
         title: 'Analyzing provenance',
         cancellable: false,
       },
+      /*
+       * <pvnc>
+       *     requirement: UNKNOWN
+       *     reason: Avoid loading workspace files into VS Code editor buffers — use fs.readFile so memory usage stays constant regardless of workspace size
+       *     source: ai.claude
+       * </pvnc>
+       */
       async progress => {
         progress.report({ message: `Scanning ${uris.length} files` });
+
+        const openByUri = new Map(
+          vscode.workspace.textDocuments.map(d => [d.uri.toString(), d]),
+        );
 
         let completed = 0;
         for (const uri of uris) {
           try {
-            const doc = await vscode.workspace.openTextDocument(uri);
+            const doc: TextDocumentLike =
+              openByUri.get(uri.toString()) ??
+              new RawTextDocument(uri, await vscode.workspace.fs.readFile(uri));
             this.indexDocument(doc);
           } catch {
             // Ignore unreadable files; the source glob already avoids common binaries.

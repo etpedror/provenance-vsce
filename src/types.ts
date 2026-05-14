@@ -1,3 +1,21 @@
+/**
+ * <pvnc>
+ *     requirement: UNKNOWN
+ *     reason: Decouple parser and metrics from vscode.TextDocument so workspace scan can use raw file bytes without opening editor buffers
+ *     source: ai.claude
+ * </pvnc>
+ */
+export interface TextDocumentLike {
+  readonly uri: import('vscode').Uri;
+  readonly version: number;
+  readonly languageId: string;
+  readonly lineCount: number;
+  getText(): string;
+  lineAt(line: number): { readonly text: string };
+  positionAt(offset: number): { readonly line: number; readonly character: number };
+  offsetAt(position: { readonly line: number; readonly character: number }): number;
+}
+
 export interface Requirement {
   id: string;
   system?: string;

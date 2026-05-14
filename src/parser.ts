@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { AiContextAnnotation, AiContextBlock, Requirement } from './types';
+import { AiContextAnnotation, AiContextBlock, Requirement, TextDocumentLike } from './types';
 
 // ── XML block format ──────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ function parseBlockContent(
   inner: string,
   startOffset: number,
   endOffset: number,
-  doc: vscode.TextDocument,
+  doc: TextDocumentLike,
 ): AiContextBlock {
   const acc = newAccumulator();
   LINE_RE.lastIndex = 0;
@@ -113,7 +113,7 @@ function parseBlockContent(
   return accToBlock(acc, doc.positionAt(startOffset).line, doc.positionAt(endOffset).line);
 }
 
-function parseXmlAnnotations(text: string, doc: vscode.TextDocument): AiContextAnnotation[] {
+function parseXmlAnnotations(text: string, doc: TextDocumentLike): AiContextAnnotation[] {
   const rawBlocks: RawBlock[] = [];
   OUTER_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -145,7 +145,7 @@ interface PvncRun {
   endOffset: number;
 }
 
-function parsePvncAnnotations(text: string, doc: vscode.TextDocument): AiContextAnnotation[] {
+function parsePvncAnnotations(text: string, doc: TextDocumentLike): AiContextAnnotation[] {
   const lineCount = doc.lineCount;
 
   // Pass 1: collect individual pvnc runs (consecutive pvnc.* comment lines).
@@ -212,7 +212,7 @@ function parsePvncAnnotations(text: string, doc: vscode.TextDocument): AiContext
 
 const cache = new Map<string, { version: number; annotations: AiContextAnnotation[] }>();
 
-export function parseDocument(doc: vscode.TextDocument): AiContextAnnotation[] {
+export function parseDocument(doc: TextDocumentLike): AiContextAnnotation[] {
   if (doc.languageId === 'markdown') return [];
 
   const cacheKey = doc.uri.toString();

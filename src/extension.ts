@@ -66,14 +66,24 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Refresh the panel when files change.
+  /*
+   * <pvnc>
+   *     requirement: UNKNOWN
+   *     reason: Debounce tree refresh on keystrokes — indexDocument is cheap (cached parse) but _onChange.fire triggers a full tree re-render on every keystroke without this
+   *     source: ai.claude
+   * </pvnc>
+   */
+  let changeRefreshTimer: ReturnType<typeof setTimeout> | undefined;
   context.subscriptions.push(
+    { dispose: () => clearTimeout(changeRefreshTimer) },
     vscode.workspace.onDidOpenTextDocument(doc => {
       treeProvider.indexDocument(doc);
       treeProvider.refresh();
     }),
     vscode.workspace.onDidChangeTextDocument(e => {
       treeProvider.indexDocument(e.document);
-      treeProvider.refresh();
+      clearTimeout(changeRefreshTimer);
+      changeRefreshTimer = setTimeout(() => treeProvider.refresh(), 300);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {
       treeProvider.indexDocument(doc);
