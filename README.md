@@ -1,7 +1,7 @@
 # Provenance
 
 [![Tests](https://github.com/etpedror/provenance-vsce/actions/workflows/tests.yml/badge.svg)](https://github.com/etpedror/provenance-vsce/actions/workflows/tests.yml)
-[![VSIX](https://github.com/etpedror/provenance-vsce/actions/workflows/vsix.yml/badge.svg)](https://github.com/etpedror/provenance-vsce/actions/workflows/vsix.yml)
+[![Package](https://github.com/etpedror/provenance-vsce/actions/workflows/vsix.yml/badge.svg)](https://github.com/etpedror/provenance-vsce/actions/workflows/vsix.yml)
 [![Publish](https://github.com/etpedror/provenance-vsce/actions/workflows/publish.yml/badge.svg)](https://github.com/etpedror/provenance-vsce/actions/workflows/publish.yml)
 
 > Embed requirement and compliance traceability directly in your code — giving
