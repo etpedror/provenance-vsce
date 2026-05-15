@@ -98,6 +98,10 @@
         "title": "Provenance: Set up AI assistant instructions"
       },
       {
+        "command": "provenance.setupPvncConfig",
+        "title": "Provenance: Set up workspace config"
+      },
+      {
         "command": "provenance.filterAnnotations",
         "title": "Search annotations",
         "icon": "$(search)"

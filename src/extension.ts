@@ -6,14 +6,24 @@ import { AiContextCompletionProvider, TRIGGER_CHARACTERS } from './providers/com
 import { AnnotationTreeProvider } from './providers/annotationTreeProvider';
 import { addAnnotation } from './commands/addAnnotation';
 import { setupInstructions } from './commands/setupInstructions';
+import { setupPvncConfig } from './commands/setupPvncConfig';
 import { invalidateCache } from './parser';
+import { loadPvncConfig } from './pvncConfig';
+import { clearTicketCache, initTicketFetcher } from './ticketFetcher';
 
 export function activate(context: vscode.ExtensionContext): void {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+  const pvncConfig = loadPvncConfig(workspaceRoot);
+
+  const outputChannel = vscode.window.createOutputChannel('Provenance');
+  context.subscriptions.push(outputChannel);
+  initTicketFetcher(outputChannel);
+
   // Hover provider — language-agnostic (pattern matches all files).
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
       { scheme: 'file', pattern: '**/*' },
-      new AiContextHoverProvider(),
+      new AiContextHoverProvider(pvncConfig),
     ),
   );
 
@@ -102,6 +112,9 @@ export function activate(context: vscode.ExtensionContext): void {
         treeProvider.refreshDecorations();
       }
     }),
+    vscode.workspace.onDidChangeTextDocument(e => {
+      if (e.document.uri.fsPath.endsWith('.pvnc/config.json')) clearTicketCache();
+    }),
   );
 
   // Scaffold command: Provenance: Add annotation
@@ -112,6 +125,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // Setup command: write AI assistant instruction files for all agents
   context.subscriptions.push(
     vscode.commands.registerCommand('provenance.setupInstructions', setupInstructions),
+  );
+
+  // Setup command: create .pvnc/config.json for this workspace
+  context.subscriptions.push(
+    vscode.commands.registerCommand('provenance.setupPvncConfig', setupPvncConfig),
   );
 
   // Keep the parse cache coherent when a file is closed or deleted.

@@ -1,0 +1,7 @@
+{
+  "defaultSystem": "github",
+  "github": {
+    "owner": "etpedror",
+    "repo": "provenance-vsce"
+  }
+}
