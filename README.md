@@ -14,7 +14,8 @@ redundant condition must not be removed. That context lives in Jira tickets, PRs
 and Slack threads — invisible at the point of consumption.
 
 **Provenance** solves this with a lightweight annotation convention that travels
-with the code, and a VS Code extension that makes it visible and searchable.
+with the code, and a VS Code extension that makes it visible, searchable, and
+linked to live ticket data.
 
 ---
 
@@ -26,15 +27,15 @@ fits your style — they can coexist in the same file.
 ### Block format — `<provenance>`
 
 A self-delimiting wrapper with `key: value` lines inside. The short alias
-`<pvnc>` is also accepted — both tag names are equivalent. Place it in a doc
-comment or string literal immediately before the code it annotates. Leading
-comment markers (`*`, `#`, `//`) are stripped automatically.
+`<pvnc>` is also accepted. Place it in a doc comment or string literal
+immediately before the code it annotates. Leading comment markers (`*`, `#`,
+`//`) are stripped automatically.
 
 ```python
 def calculate_tax(order):
     """
     <provenance>
-        requirement: USER-1042 (jira)
+        jira: USER-1042
         reason: Tax engine entry point — called by checkout and invoice flows
         invariant: Result must never be negative
         source: human
@@ -45,7 +46,7 @@ def calculate_tax(order):
 ```typescript
 /**
  * <provenance>
- *     requirement: PAY-88 (github, 2025-01)
+ *     github: 88
  *     reason: Stripe webhook signature verification required by PCI-DSS
  *     do-not-change: PCI-DSS compliance — audited 2025-01
  *     source: ai.claude
@@ -60,12 +61,12 @@ full change history:
 ```python
     """
     <pvnc>
-        requirement: USER-1062 (jira, 2024-Q1)
+        jira: USER-1062 (2024-Q1)
         reason: HMRC food exemptions introduced — basic food is zero-rated
         source: human
     </pvnc>
     <pvnc>
-        requirement: USER-1092 (jira, 2025-Q3)
+        jira: USER-1092 (2025-Q3)
         reason: Sugar content threshold added — high-sugar foods excluded
         do-not-change: HMRC compliance — do not simplify this condition
         source: ai.claude
@@ -79,11 +80,10 @@ full change history:
 
 One comment line per key — no wrapper needed. Works anywhere a line comment
 works. Consecutive runs separated only by blank lines are grouped into a single
-annotation, forming a changelog timeline. (Block format entries are always
-independent — grouping applies to inline runs only.)
+annotation. Use the ticket system name directly as the key suffix.
 
 ```python
-# pvnc.req: USER-1092 (jira, 2025-Q3)
+# pvnc.jira: USER-1092
 # pvnc.reason: Sugar content threshold — high-sugar foods excluded
 # pvnc.do-not-change: HMRC compliance — audited 2024-03
 # pvnc.source: ai.claude
@@ -92,50 +92,64 @@ if order.category == "food" and order.sugar_content <= 2:
 ```
 
 ```go
-// pvnc.req: PAY-88 (github, 2025-01)
+// pvnc.github: 88
 // pvnc.reason: Signature verification required by PCI-DSS
 // pvnc.source: human
 func verifyWebhookSignature(payload []byte, sig string) bool {
 ```
 
 ```rust
-// pvnc.req: USER-1062
+// pvnc.jira: USER-1062
 // pvnc.reason: HMRC food exemptions — zero-rated basic food
 // pvnc.source: ai.copilot
 
-// pvnc.req: USER-1092
+// pvnc.jira: USER-1092
 // pvnc.reason: Sugar threshold added — excludes high-sugar foods
 // pvnc.dnc: HMRC compliance
 // pvnc.source: ai.claude
 fn apply_food_exemption(order: &Order) -> bool {
 ```
 
-**Shorthands:** `pvnc.req` = `requirement` · `pvnc.dnc` = `do-not-change` · `pvnc.inv` = `invariant` · `pvnc.see` = `see-also`
+**Shorthands:** `pvnc.dnc` = `do-not-change` · `pvnc.inv` = `invariant` · `pvnc.see` = `see-also`
+
+---
+
+## Ticket system keys
+
+The ticket system name is the key. Any key not reserved by Provenance is treated
+as a ticket system reference and will be looked up if the system is configured.
+
+```text
+github: 42
+jira: PROJ-123
+ado: 45678
+linear: ENG-99
+confluence: architecture/decisions/001
+```
+
+You can reference multiple systems in one block:
+
+```text
+<pvnc>
+    jira: PROJ-123
+    confluence: architecture/decisions/001
+    reason: Refactored per ADR-001 agreed in planning
+    source: human
+</pvnc>
+```
 
 ---
 
 ## Key reference
 
-| Key | Block format | Inline format | Description |
-| --- | ------------ | ------------- | ----------- |
-| `requirement` | `requirement: ID (system, date)` | `pvnc.req:` | Work item that drove this code |
-| `reason` | `reason: ...` | `pvnc.reason:` | Human-readable explanation |
+| Key | Block format | Inline shorthand | Description |
+| --- | ------------ | ---------------- | ----------- |
+| *(ticket system)* | `github: 42` · `jira: PROJ-1` · `ado: 123` · … | `pvnc.github:` · `pvnc.jira:` · … | Work item or page reference — any system name is valid |
+| `reason` | `reason: ...` | `pvnc.reason:` | Human-readable explanation of why this code exists |
 | `source` | `source: ...` | `pvnc.source:` | Authorship — `human`, `ai.claude`, `ai.copilot`, … |
 | `invariant` | `invariant: ...` | `pvnc.inv:` | A rule that must never be violated |
 | `do-not-change` | `do-not-change: ...` | `pvnc.dnc:` | Load-bearing complexity — triggers a warning on edit |
-| `see-also` | `see-also: ...` | `pvnc.see:` | Cross-references: file paths or ticket IDs (comma-separated) |
-
-### `requirement` value format
-
-```text
-requirement: ID (system, date)
-```
-
-| Part | Description |
-| ---- | ----------- |
-| `ID` | Work item identifier, e.g. `USER-1042` |
-| `system` | Optional — `jira`, `github`, `ado`, or `linear` |
-| `date` | Optional — ISO date or quarter, e.g. `2024-Q1` |
+| `see-also` | `see-also: ...` | `pvnc.see:` | Cross-references: file paths or IDs (comma-separated) |
 
 ### `source` values
 
@@ -149,69 +163,68 @@ requirement: ID (system, date)
 | `ai.cursor` | Generated by Cursor |
 | `ai.other` | Any other AI tool |
 
-The `source` key enables an **AI vs human authorship metric** across the
-codebase — searchable in the Provenance panel.
-
 ---
 
 ## Features
 
-### Syntax highlighting
+### Hover tooltips with live ticket data
 
-Keys, requirement IDs, reason text, `source` values, and `do-not-change`
-entries each render distinctly — composing naturally with any VS Code colour
-theme. Both the block and inline formats are highlighted.
+Hovering over a provenance annotation surfaces its full content. When a ticket
+system is configured, the extension fetches the live issue title and state and
+shows it inline — no need to leave the editor.
 
-### AI vs human authorship metric
+```text
+provenance
+─────────────────────────────
+github: 42  — Fix hover tooltip scope  🟢
+Reason: Restrict hover to annotation comment lines only
+Authored by: 🤖 ai.claude
+```
 
-The `source` key tracks who — or what — wrote each annotated block. The
-Provenance panel aggregates this for opened files by default, and across the
-workspace when you run **Analyze Workspace**. That makes the split between
-human-written, AI-generated, and unknown-source code visible without forcing a
-full repository scan on startup. Gutter icons reinforce this per-line: a teal
-chip for AI, an orange person for human, a gray shield when unspecified.
+GitHub issues are fetched using your existing VS Code GitHub login — no token
+setup required. Other systems require a PAT stored in VS Code's encrypted secret
+storage (see workspace config below).
 
 ### Gutter icons
 
 A small icon appears in the editor gutter next to every annotated line,
-colour-coded by authorship (see above).
-
-### Explorer badges
-
-Explorer file badges are available as an opt-in setting. They are shown only for
-files Provenance already knows about — opened files, edited files, or files from
-an explicit **Analyze Workspace** run. AI-authored files use `▲`, human-authored
-files use `■`, and mixed files use `◆`. Unknown-source and unindexed files are
-left unmarked.
-
-### Hover tooltips
-
-Hovering over an annotated method or block surfaces its full annotation
-content, including authorship and cross-references. Multiple blocks are shown
-as a numbered timeline.
+colour-coded by authorship: teal chip for AI, orange person for human, gray
+shield when unspecified.
 
 ### Do-not-change warnings
 
-Editing code immediately after a `do-not-change:` (or `pvnc.dnc:`) annotation
-shows a non-blocking warning:
-
-> This block is marked do-not-change (HMRC compliance — audited 2024-03). Proceed with intention.
+Editing code immediately after a `do-not-change:` annotation shows a
+non-blocking warning. The annotation is also highlighted in red in the hover
+tooltip to make it unmissable.
 
 ### Provenance panel
 
 The **Provenance** sidebar panel starts with a lazy index of opened files, then
-updates as files are opened or edited. Use **Analyze Workspace** from the panel
-toolbar to run a deterministic full scan and collect workspace-wide metrics:
-files with provenance, files with AI-authored content, estimated AI-authored
-code lines, unknown-source annotations, and `do-not-change` counts. Use the
-**search icon** to filter by requirement ID, system, author, reason, or any
-other field. Click any entry to jump to that line.
+updates as files are opened or edited. Use **Analyze Workspace** to run a full
+scan and collect workspace-wide metrics: files with provenance, AI vs human
+authorship split, estimated annotated code lines, and `do-not-change` counts.
+Use the **search icon** to filter by ticket ID, system, author, or reason text.
+Click any entry to jump to that line.
+
+### Explorer badges
+
+Opt-in file badges in the Explorer show authorship at a glance: `▲` for
+AI-authored, `■` for human-authored, `◆` for mixed. Only shown for files
+Provenance has already indexed.
 
 ### Add annotation command
 
 **Command Palette → `Provenance: Add annotation`** scaffolds a block at the
-cursor, prompting for requirement ID, ticket system, reason, and authorship.
-The block is wrapped in the correct comment style for the active language.
+cursor, prompting for ticket ID, system, reason, and authorship. The block is
+wrapped in the correct comment style for the active language. Autocomplete
+suggests all configured ticket system keys inside blocks and after `pvnc.`.
+
+### Set up workspace config
+
+**Command Palette → `Provenance: Set up workspace config`** creates
+`.pvnc/config.json` interactively, walking you through your ticket system
+details. For GitHub, owner and repo are auto-detected from the git remote.
+Commit this file so all team members share the same configuration.
 
 ### Set up AI assistant instructions
 
@@ -229,12 +242,48 @@ only if it is not already present.
 
 ---
 
-## Configuration
+## Workspace config — `.pvnc/config.json`
+
+Create this file (or use the **Set up workspace config** command) to configure
+ticket system integration. Commit it to share with your team — it contains no
+credentials.
+
+```json
+{
+  "defaultSystem": "github",
+  "github": {
+    "owner": "your-org",
+    "repo": "your-repo"
+  }
+}
+```
+
+With `jira` or `ado`:
+
+```json
+{
+  "defaultSystem": "jira",
+  "jira": {
+    "baseUrl": "https://yourcompany.atlassian.net",
+    "project": "PROJ"
+  },
+  "ado": {
+    "organisation": "yourorg",
+    "project": "MyProject"
+  }
+}
+```
+
+Credentials (PATs, tokens) are stored separately in VS Code's encrypted secret
+storage — never in this file.
+
+---
+
+## VS Code settings
 
 ```jsonc
 {
   // Show gutter icons next to annotated lines (default: true)
-  // Icon varies by authorship: teal chip = AI, orange person = human, shield = unknown
   "provenance.gutterIcons": true,
 
   // Show opt-in Explorer badges for known files only (default: false)
@@ -244,14 +293,7 @@ only if it is not already present.
   "provenance.warnOnDoNotChange": true,
 
   // Lines below an annotation treated as guarded (default: 30)
-  "provenance.guardedRangeLines": 30,
-
-  // Ticket system connections (reserved for hover enrichment in a future release)
-  "provenance.ticketSystems": {
-    "jira":   { "baseUrl": "https://yourcompany.atlassian.net", "apiToken": "" },
-    "ado":    { "organisation": "yourorg", "pat": "" },
-    "github": { "owner": "your-org", "repo": "your-repo", "token": "" }
-  }
+  "provenance.guardedRangeLines": 30
 }
 ```
 
@@ -266,9 +308,11 @@ Add this to your Cursor rules, Copilot instructions, or Claude project context
 When modifying code that contains <pvnc> / <provenance> blocks or pvnc.* comments:
 1. Read all annotation entries before making any changes.
 2. After making a change, add a new <pvnc> block immediately before the affected code.
-3. Never remove or rewrite existing annotations.
-4. Never remove or simplify code marked with do-not-change without explicit instruction.
-5. Always include a source: key identifying the authorship of the new code.
+3. Use the ticket system name as the key: github: 42, jira: PROJ-1, ado: 123.
+   If no ticket exists, omit the ticket line.
+4. Never remove or rewrite existing annotations.
+5. Never remove or simplify code marked with do-not-change without explicit instruction.
+6. Always include a source: key identifying the authorship of the new code.
 ```
 
 ---

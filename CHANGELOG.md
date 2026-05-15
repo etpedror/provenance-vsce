@@ -6,29 +6,56 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [0.1.0] — 2025-05-14
+## [1.0.4] — 2026-05-15
 
 ### Added
 
-- **`<ai-context>` annotation convention** — language-agnostic `key: value` format
-  embedded inside doc comments or string literals.
-- **Syntax highlighting** — injection grammar covering Python, TypeScript, JavaScript,
-  Java, C#, Rust, Go, and more. Keys, requirement IDs, and `do-not-change` entries
-  each render distinctly within any colour theme.
-- **Gutter icons** — small icon in the editor gutter next to every annotated line.
-- **Hover tooltips** — surfaces requirement IDs, reasons, invariants, and
-  `do-not-change` warnings on hover. Multiple blocks shown as a numbered timeline.
-- **Do-not-change warnings** — non-blocking warning when editing code immediately
-  following a `do-not-change:` annotation.
-- **Annotations sidebar** — Activity Bar panel listing every `<ai-context>` block
-  in the workspace, grouped by file, with click-to-navigate.
-- **Annotation search** — filter the sidebar by requirement ID, system, reason text,
-  or invariant content.
-- **`ai-context: Add annotation` command** — scaffolds a correctly-structured block
-  at the cursor, prompting for ID, system, and reason. Wraps in the correct comment
-  style for the active language.
-- **`ai-context: Set up AI assistant instructions` command** — writes standing
-  instructions for Claude Code (`CLAUDE.md`), GitHub Copilot
-  (`.github/copilot-instructions.md`), and Cursor (`.cursorrules`) into the
-  workspace. Appends to existing files rather than overwriting them; skips files
-  that already contain the block.
+- **Ticket system keys** — ticket system name is now the key (`github: 42`, `jira: PROJ-1`, `ado: 123`). Any unknown key in a block or inline annotation is treated as a ticket system reference. The old `requirement: ID (system)` format is still parsed for backward compatibility.
+- **Live ticket hover enrichment** — hovering a ticket key fetches the issue title and state from the configured system and shows it inline. GitHub uses VS Code's built-in auth; no token setup needed for public or private repos where you are already signed in.
+- **`.pvnc/config.json`** — committed workspace config file for ticket system details (owner/repo, base URLs). Auto-detected from the git remote for GitHub if the file is absent.
+- **`Provenance: Set up workspace config` command** — interactive wizard to create `.pvnc/config.json`, with auto-detection of GitHub owner/repo from the git remote.
+- **Provenance output channel** — ticket fetch activity and errors are logged to the **Provenance** output channel for diagnostics.
+- **Autocomplete filtered by config** — ticket system completions (inside `<pvnc>` blocks and after `pvnc.`) only show systems present in `.pvnc/config.json`.
+- **Inline `pvnc.*` autocomplete** — `.` added as a trigger character; completions now work for `// pvnc.<key>` inline annotations as well as block format.
+- **Do-not-change hover highlight** — `do-not-change` entries render in red with a left border in the hover tooltip.
+- **Hover title** renamed from `ai-context` to `provenance`.
+
+### Changed
+
+- Hover tooltip now appears only over the annotation comment lines themselves, not over the guarded code below.
+- `addAnnotation` command scaffolds the new `system: id` key format.
+- AI assistant instruction templates updated to reflect the new annotation format.
+
+### Performance
+
+- **Workspace scan** (`Analyze Workspace`) now uses `workspace.fs.readFile` instead of `openTextDocument` — files are parsed without loading them into editor buffers, keeping memory usage flat regardless of workspace size.
+- **Shared `TextDocumentLike` interface** — parser and metrics no longer depend on `vscode.TextDocument` directly, enabling the above without duplicating logic.
+- **Debounced tree refresh** — the sidebar panel no longer re-renders on every keystroke; refresh is coalesced with a 300 ms debounce.
+
+---
+
+## [1.0.3] — 2026-05-14
+
+- Publish workflow now guards against tags pushed from non-main branches.
+- False-positive annotations no longer detected inside markdown fenced code blocks and string literals.
+
+---
+
+## [1.0.2] — 2026-05-14
+
+- False-positive `do-not-change` warnings in markdown and string literals.
+
+---
+
+## [1.0.1] — 2026-05-14
+
+- Minor parser edge cases for inline `pvnc.*` format.
+
+---
+
+## [1.0.0] — 2026-05-14
+
+Initial release with block (`<pvnc>`) and inline (`pvnc.*`) annotation formats.
+Gutter icons, hover tooltips, do-not-change warnings, sidebar panel, workspace metrics.
+`Provenance: Add annotation` and `Provenance: Set up AI assistant instructions` commands.
+Explorer file badges (opt-in).
