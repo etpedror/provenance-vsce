@@ -7,7 +7,7 @@ import { AiContextAnnotation, AiContextBlock, Requirement, TextDocumentLike } fr
 // whitespace and comment markers). This prevents matching tags inside string
 // literals or template expressions in source code.
 const OUTER_RE = /^[ \t]*[*#/]*[ \t]*<(?:pvnc|provenance)>([\s\S]*?)<\/(?:pvnc|provenance)>/gm;
-const LINE_RE = /^[ \t*#/]*?(requirement|reason|invariant|do-not-change|source|see-also):\s*(.*)/gm;
+const LINE_RE = /^[ \t*#/]*?([\w-]+):\s*(.*)/gm;
 const REQ_VALUE_RE = /^(\S+)(?:\s+\(([^,)]+?)(?:,\s*([^)]+?))?\))?/;
 const BETWEEN_RE = /^[\s"'`*#/|\\!;.,\-()[\]{}@]*$/;
 
@@ -16,15 +16,14 @@ const BETWEEN_RE = /^[\s"'`*#/|\\!;.,\-()[\]{}@]*$/;
 // Matches: # pvnc.req: VALUE  or  // pvnc.source: VALUE  etc.
 const PVNC_LINE_RE = /^[ \t]*(?:[#*]|\/\/)\s*pvnc\.([\w-]+):\s*(.*)/;
 
-/** The canonical list of allowed keys inside an <pvnc> block. */
-export const ALLOWED_KEYS = ['requirement', 'reason', 'invariant', 'do-not-change', 'source', 'see-also'] as const;
-export type AllowedKey = typeof ALLOWED_KEYS[number];
+/** Known non-ticket keys inside a <pvnc> block or pvnc.* inline annotation. */
+export const KNOWN_KEYS = ['reason', 'invariant', 'do-not-change', 'source', 'see-also'] as const;
+export type KnownKey = typeof KNOWN_KEYS[number];
 
-// Normalise pvnc shorthand keys (pvnc.req, pvnc.dnc, …) to canonical AllowedKey names.
-function normalisePvncKey(raw: string): AllowedKey | null {
+// Normalise pvnc shorthand keys to canonical names.
+// Returns the canonical key for known fields, the raw key for ticket systems, null to discard.
+function normalisePvncKey(raw: string): string | null {
   switch (raw) {
-    case 'req':
-    case 'requirement':    return 'requirement';
     case 'reason':         return 'reason';
     case 'source':         return 'source';
     case 'do-not-change':
@@ -33,7 +32,11 @@ function normalisePvncKey(raw: string): AllowedKey | null {
     case 'inv':            return 'invariant';
     case 'see-also':
     case 'see':            return 'see-also';
-    default:               return null;
+    // Backward compat: old requirement: ID (system) syntax
+    case 'req':
+    case 'requirement':    return 'requirement';
+    // Unknown key → ticket system name (e.g. pvnc.github, pvnc.jira, pvnc.confluence)
+    default:               return raw;
   }
 }
 
@@ -52,13 +55,8 @@ function newAccumulator(): BlockAccumulator {
   return { requirements: [], reasons: [], invariants: [], doNotChange: undefined, source: undefined, seeAlso: [] };
 }
 
-function applyKeyValue(acc: BlockAccumulator, key: AllowedKey, value: string): void {
+function applyKeyValue(acc: BlockAccumulator, key: string, value: string): void {
   switch (key) {
-    case 'requirement': {
-      const rv = REQ_VALUE_RE.exec(value);
-      if (rv) acc.requirements.push({ id: rv[1], system: rv[2], date: rv[3] });
-      break;
-    }
     case 'reason':
       if (value) acc.reasons.push(value);
       break;
@@ -74,6 +72,15 @@ function applyKeyValue(acc: BlockAccumulator, key: AllowedKey, value: string): v
     case 'see-also':
       if (value) acc.seeAlso.push(...value.split(',').map(s => s.trim()).filter(Boolean));
       break;
+    case 'requirement': {
+      // Backward compat: requirement: ID (system, date)
+      const rv = REQ_VALUE_RE.exec(value);
+      if (rv) acc.requirements.push({ id: rv[1], system: rv[2], date: rv[3] });
+      break;
+    }
+    default:
+      // Any other key is a ticket system reference: github: 1, jira: PROJ-42, confluence: page/path
+      if (value) acc.requirements.push({ id: value.trim(), system: key });
   }
 }
 
@@ -108,7 +115,7 @@ function parseBlockContent(
   LINE_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = LINE_RE.exec(inner)) !== null) {
-    applyKeyValue(acc, m[1] as AllowedKey, m[2].trim());
+    applyKeyValue(acc, m[1], m[2].trim());
   }
   return accToBlock(acc, doc.positionAt(startOffset).line, doc.positionAt(endOffset).line);
 }

@@ -119,7 +119,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Scaffold command: Provenance: Add annotation
   context.subscriptions.push(
-    vscode.commands.registerCommand('provenance.addAnnotation', addAnnotation),
+    vscode.commands.registerCommand('provenance.addAnnotation', () => addAnnotation(pvncConfig)),
   );
 
   // Setup command: write AI assistant instruction files for all agents

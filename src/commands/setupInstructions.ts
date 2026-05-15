@@ -19,8 +19,8 @@ being asked.
 2. After making the change, add a **new** \`<pvnc>\` block immediately before
    the affected line or method. Never replace or remove existing blocks.
 3. The new block must include:
-   - \`requirement:\` — use the ticket/issue ID the user mentions, or \`UNKNOWN\` if
-     none is given.
+   - A ticket reference using the system as the key: \`github: 123\`, \`jira: PROJ-42\`, \`ado: 45678\`.
+     If no ticket exists, omit the ticket line.
    - \`reason:\` — one sentence describing *why* the change was made (not what).
    - \`source:\` — \`human\`, \`ai.claude\`, \`ai.copilot\`, etc.
 4. If the changed code must not be simplified in future, add \`do-not-change:\` with
@@ -36,13 +36,14 @@ logical block. Same fields as above.
 \`\`\`python
 """
 <pvnc>
-    requirement: TICKET-123 (github)
+    github: 123
     reason: Plain English explanation of why this code exists or changed
     source: ai.claude
 </pvnc>
 """
 \`\`\`
 
+Any ticket system name is a valid key (\`jira\`, \`ado\`, \`linear\`, \`confluence\`, …).
 Adjust the comment style to match the language (\`/** */\` for Java/TS/JS,
 \`# ...\` for Ruby/shell, etc.). Always indent the keys by 4 spaces inside the
 tags. Both \`<pvnc>\` and \`<provenance>\` are valid tag names.

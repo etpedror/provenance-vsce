@@ -297,10 +297,10 @@ describe('<provenance> tag alias', () => {
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
-describe('ALLOWED_KEYS', () => {
-  it('covers all six keys', () => {
-    expect(parser.ALLOWED_KEYS).toEqual(
-      expect.arrayContaining(['requirement', 'reason', 'invariant', 'do-not-change', 'source', 'see-also']),
+describe('KNOWN_KEYS', () => {
+  it('covers all non-ticket keys', () => {
+    expect(parser.KNOWN_KEYS).toEqual(
+      expect.arrayContaining(['reason', 'invariant', 'do-not-change', 'source', 'see-also']),
     );
   });
 });

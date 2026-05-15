@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { PvncConfig } from '../pvncConfig';
 
 const TICKET_SYSTEMS = ['jira', 'github', 'ado', 'linear'] as const;
 const SOURCE_OPTIONS = ['human', 'ai.claude', 'ai.copilot', 'ai.codex', 'ai.gemini', 'ai.cursor', 'ai.other'] as const;
@@ -10,7 +11,7 @@ const BLOCK_DOC_LANGS = new Set([
 
 const HASH_COMMENT_LANGS = new Set(['python', 'ruby', 'shellscript', 'yaml', 'r']);
 
-export async function addAnnotation(): Promise<void> {
+export async function addAnnotation(config: PvncConfig = {}): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showErrorMessage('Provenance: No active editor.');
@@ -19,15 +20,31 @@ export async function addAnnotation(): Promise<void> {
 
   const id = await vscode.window.showInputBox({
     prompt: 'Requirement ID',
-    placeHolder: 'e.g. USER-1042 or GH-99',
-    validateInput: v => (v.trim() ? undefined : 'ID is required'),
+    placeHolder: 'e.g. 42 or USER-1042',
+    validateInput: v => {
+      if (!v.trim()) return 'ID is required';
+      if (/\s/.test(v.trim())) return 'Looks like free text — use the reason: field for descriptions, requirement: is for ticket IDs';
+      return undefined;
+    },
   });
   if (id === undefined) return;
 
-  const system = await vscode.window.showQuickPick([...TICKET_SYSTEMS], {
-    placeHolder: 'Ticket system',
-  });
-  if (system === undefined) return;
+  // Build system choices: put the default first with a label, rest after
+  const defaultSystem = config.defaultSystem;
+  const others = TICKET_SYSTEMS.filter(s => s !== defaultSystem);
+  const items: vscode.QuickPickItem[] = [
+    ...(defaultSystem
+      ? [{ label: defaultSystem, description: '(workspace default — omitted from annotation)' }]
+      : []),
+    ...others.map(s => ({ label: s })),
+    { label: '(none)', description: 'No ticket system' },
+  ];
+
+  const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Ticket system' });
+  if (picked === undefined) return;
+  // For the new key-as-system format, always use the system as the key.
+  // Only omit when user explicitly picked "(none)".
+  const system = picked.label === '(none)' ? undefined : picked.label;
 
   const reason = await vscode.window.showInputBox({
     prompt: 'Reason (human-readable — leave blank to omit)',
@@ -55,14 +72,14 @@ export async function addAnnotation(): Promise<void> {
 function buildSnippet(
   languageId: string,
   id: string,
-  system: string,
+  system: string | undefined,
   reason: string,
   source: string,
 ): string {
   const today = new Date().toISOString().split('T')[0];
   const lines: string[] = [
     `<pvnc>`,
-    `    requirement: ${id} (${system}, ${today})`,
+    ...(system ? [`    ${system}: ${id} (${today})`] : []),
     ...(reason ? [`    reason: ${reason}`] : []),
     `    source: ${source}`,
     `</pvnc>`,
