@@ -153,6 +153,8 @@ You can reference multiple systems in one block:
 
 ### `source` values
 
+> **Privacy note:** `source` identifies the *type* of authorship — `human`, `ai.claude`, `ai.copilot` — never the individual. Provenance is about code accountability, not developer monitoring. Aggregate metrics answer governance questions without creating surveillance.
+
 | Value | Meaning |
 | ----- | ------- |
 | `human` | Written by a person |
