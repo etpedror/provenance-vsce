@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.0] — 2026-05-15
+
+- **Code Guard** — structural fences around regions that must not change, using `pvnc.guard_start: <block-id>` and `pvnc.guard_end: <block-id>` line comment markers.
+  - Amber shield gutter icon on marker lines; configurable background tint on interior lines.
+  - Non-blocking edit warning with a **Scaffold removal** shortcut when any line inside a guard is modified.
+  - Hover tooltip on marker lines showing block ID, linked `<pvnc>` annotation, and removal instructions.
+  - **Guards** section in the Provenance sidebar panel listing all active guard regions with file, line range, and documentation status.
+  - Guard metrics (`guardCount`, `documentedGuardCount`, `malformedGuardCount`) surfaced in the Metrics section and aggregated at workspace level.
+  - Malformed guard detection — `guard_start` without a matching `guard_end` shows a warning decoration.
+- **`Provenance: Remove guard` command** — prompts for block ID (pre-filled from the active document) and reason; outputs the ready-to-paste `pvnc.guard_removed` declaration and commit message to an output channel with one-click clipboard copy.
+- **Code Guard rules** appended to AI assistant instruction files written by `Provenance: Set up AI assistant instructions`.
+- **CI enforcement** — `ci/check-codeguard.py` core script plus ready-to-use integrations for GitHub Actions (`.github/workflows/codeguard.yml`), Azure DevOps (`ci/azure-codeguard.yml`), and pre-commit (`.pre-commit-hooks.yaml`).
+- Six new settings under `provenance.codeGuard.*`: `enabled`, `gutterHighlight`, `regionTint`, `regionTintColour`, `warnOnEdit`, `ciStrictMode`.
+- `provenance.guardMarkerForeground` theme colour for guard gutter icons.
+
+---
+
 ## [1.0.4] — 2026-05-15
 
 ### Added

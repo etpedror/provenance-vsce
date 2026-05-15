@@ -1,0 +1,55 @@
+# Provenance Code Guard — Azure DevOps pipeline
+#
+# Reference this file from your project pipeline settings, or import it
+# directly. It runs on every pull request and fails the build if any
+# guarded region is modified without a preceding pvnc.guard_removed commit.
+#
+# To use:
+#   1. Copy this file into your repo (e.g. ci/azure-codeguard.yml).
+#   2. Copy ci/check-codeguard.py into the same ci/ folder.
+#   3. In Azure DevOps → Pipelines → New pipeline, select "Existing Azure
+#      Pipelines YAML file" and point it at this file.
+#   4. The pipeline triggers automatically on pull requests.
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - '*'
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  PYTHON_VERSION: '3.11'
+
+steps:
+  - checkout: self
+    fetchDepth: 0      # Full history required for guard_removed detection.
+    displayName: Checkout (full history)
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: $(PYTHON_VERSION)
+      addToPath: true
+    displayName: Set up Python $(PYTHON_VERSION)
+
+  - script: |
+      TARGET_BRANCH="origin/$(System.PullRequest.TargetBranchName)"
+      HEAD_SHA="$(Build.SourceVersion)"
+
+      echo "Base: $TARGET_BRANCH"
+      echo "Head: $HEAD_SHA"
+
+      python ci/check-codeguard.py \
+        --base "$TARGET_BRANCH" \
+        --head "$HEAD_SHA"
+    displayName: Provenance Code Guard check
+    # Exit code 1 means violations; the task will mark the build as failed.
+
+  - script: |
+      echo "##vso[task.logissue type=warning]Code Guard violations detected. See the step output above."
+      echo "##vso[task.complete result=Failed;]DONE"
+    condition: failed()
+    displayName: Annotate failure

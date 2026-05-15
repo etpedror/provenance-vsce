@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseDocument } from '../parser';
-import { AiContextAnnotation, AiContextBlock, TextDocumentLike } from '../types';
+import { parseGuards } from '../guardParser';
+import { AiContextAnnotation, AiContextBlock, GuardRegion, TextDocumentLike } from '../types';
 import { RawTextDocument } from '../rawTextDocument';
 import {
   DocumentMetrics,
@@ -12,7 +13,7 @@ import {
 
 // ---------- tree node types ----------
 
-type SectionKind = 'metrics' | 'annotations';
+type SectionKind = 'metrics' | 'annotations' | 'guards';
 
 export class SectionNode extends vscode.TreeItem {
   readonly kind = 'section';
@@ -101,11 +102,61 @@ export class BlockNode extends vscode.TreeItem {
   }
 }
 
-type TreeNode = SectionNode | FileNode | BlockNode | MetricsNode;
+export class GuardNode extends vscode.TreeItem {
+  readonly kind = 'guard';
+
+  constructor(
+    readonly uri: vscode.Uri,
+    readonly region: GuardRegion,
+  ) {
+    const label = region.blockId;
+    super(label, vscode.TreeItemCollapsibleState.None);
+
+    const file = path.basename(uri.fsPath);
+    const endDesc = region.endLine !== undefined ? `–${region.endLine + 1}` : '–?';
+    this.description = `${file}:${region.startLine + 1}${endDesc}`;
+    this.tooltip = buildGuardTooltip(region);
+
+    this.iconPath = region.isMalformed
+      ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'))
+      : new vscode.ThemeIcon('shield');
+
+    this.contextValue = region.isMalformed ? 'provenanceGuardMalformed' : 'provenanceGuard';
+
+    this.command = {
+      command: 'vscode.open',
+      title: 'Go to guard',
+      arguments: [
+        uri,
+        {
+          selection: new vscode.Range(region.startLine, 0, region.startLine, 0),
+          preserveFocus: false,
+        } satisfies vscode.TextDocumentShowOptions,
+      ],
+    };
+  }
+}
+
+type TreeNode = SectionNode | FileNode | BlockNode | MetricsNode | GuardNode;
 
 interface BlockRef {
   annotation: AiContextAnnotation;
   block: AiContextBlock;
+}
+
+function buildGuardTooltip(region: GuardRegion): vscode.MarkdownString {
+  const md = new vscode.MarkdownString();
+  md.appendMarkdown(`**Guard:** \`${region.blockId}\`\n\n`);
+  if (region.isMalformed) {
+    md.appendMarkdown(`⚠ Malformed — missing \`pvnc.guard_end\`\n\n`);
+  }
+  if (region.associatedAnnotation) {
+    const reqs = region.associatedAnnotation.blocks.flatMap(b => b.requirements);
+    if (reqs.length > 0) {
+      md.appendMarkdown(`**Requirement:** ${reqs.map(r => `\`${r.id}\``).join(', ')}\n\n`);
+    }
+  }
+  return md;
 }
 
 function buildTooltip(block: AiContextBlock): vscode.MarkdownString {
@@ -162,7 +213,8 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
     if (document.uri.scheme !== 'file') return;
 
     const annotations = parseDocument(document);
-    const metrics = computeDocumentMetrics(document, annotations);
+    const guards = parseGuards(document, annotations);
+    const metrics = computeDocumentMetrics(document, annotations, guards);
     const blocks = annotations.flatMap(annotation =>
       annotation.blocks.map(block => ({ annotation, block })),
     );
@@ -172,6 +224,7 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
       annotations,
       blocks,
       metrics,
+      guards,
     });
     this.updateMessage();
     this._onDidChangeFileDecorations.fire(document.uri);
@@ -272,22 +325,27 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
 
   async getChildren(node?: TreeNode): Promise<TreeNode[]> {
     if (node instanceof SectionNode) {
-      return node.section === 'metrics'
-        ? this.buildMetricNodes()
-        : this.buildFileNodes();
+      if (node.section === 'metrics') return this.buildMetricNodes();
+      if (node.section === 'guards') return this.buildGuardNodes();
+      return this.buildFileNodes();
     }
 
     if (node instanceof FileNode) {
       return node.blocks.map(ref => new BlockNode(node.uri, ref.annotation, ref.block));
     }
-    if (node instanceof MetricsNode) {
+    if (node instanceof MetricsNode || node instanceof GuardNode) {
       return [];
     }
 
-    return [
+    const sections: TreeNode[] = [
       this.buildMetricsSection(),
       this.buildAnnotationsSection(),
     ];
+
+    const guardSection = this.buildGuardsSection();
+    if (guardSection) sections.push(guardSection);
+
+    return sections;
   }
 
   private buildMetricsSection(): SectionNode {
@@ -304,6 +362,31 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
       `${metrics.provenanceFileCount} files, ${metrics.annotationCount} annotations`,
       'list-tree',
     );
+  }
+
+  private buildGuardsSection(): SectionNode | undefined {
+    const metrics = this.workspaceMetrics();
+    if (metrics.guardCount === 0) return undefined;
+    const malformedNote = metrics.malformedGuardCount > 0 ? `, ${metrics.malformedGuardCount} malformed` : '';
+    return new SectionNode(
+      'guards',
+      'Guards',
+      `${metrics.guardCount} regions${malformedNote}`,
+      'shield',
+    );
+  }
+
+  private buildGuardNodes(): GuardNode[] {
+    const nodes: GuardNode[] = [];
+    for (const entry of this.indexed.values()) {
+      for (const region of entry.guards) {
+        nodes.push(new GuardNode(entry.uri, region));
+      }
+    }
+    return nodes.sort((a, b) => {
+      const fc = a.uri.fsPath.localeCompare(b.uri.fsPath);
+      return fc !== 0 ? fc : a.region.startLine - b.region.startLine;
+    });
   }
 
   private buildMetricNodes(): MetricsNode[] {
@@ -336,6 +419,13 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
         `Do-not-change blocks: ${metrics.doNotChangeCount}`,
         `${formatCount(metrics.annotatedLineCount, metrics.totalCodeLineCount)} lines under provenance`,
         'warning',
+      ),
+      new MetricsNode(
+        `Guard regions: ${metrics.guardCount}`,
+        metrics.guardCount > 0
+          ? `${metrics.documentedGuardCount} documented, ${metrics.malformedGuardCount} malformed`
+          : 'no Code Guard regions found',
+        'shield',
       ),
     ];
   }
@@ -399,6 +489,7 @@ interface IndexedDocument {
   annotations: AiContextAnnotation[];
   blocks: BlockRef[];
   metrics: DocumentMetrics;
+  guards: GuardRegion[];
 }
 
 function sourceIncludeGlob(): string {

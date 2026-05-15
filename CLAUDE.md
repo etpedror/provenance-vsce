@@ -1,4 +1,13 @@
-# Provenance — standing instructions
+# Provenance extension — development instructions
+
+<!-- provenance-pointer -->
+> [!IMPORTANT]
+> **Provenance** — Read `.pvnc/PROVENANCE.md` before modifying any code in this repository.
+> That file contains annotation rules, Code Guard instructions, and what not to do.
+> It is auto-maintained by the Provenance VS Code extension — do not delete it.
+<!-- /provenance-pointer -->
+
+## Provenance — standing instructions
 
 This project uses the `provenance` annotation convention to embed traceability
 directly into source code. Follow these rules on every code change, without
@@ -45,3 +54,14 @@ tags. Both `<pvnc>` and `<provenance>` are valid tag names.
 - Do not remove or rewrite existing `<pvnc>` / `<provenance>` blocks.
 - Do not add annotations to lines you did not change.
 - Do not remove or simplify code marked with `do-not-change` without explicit instruction.
+
+## Code Guard rules
+
+1. Never modify code between `pvnc.guard_start` and `pvnc.guard_end` markers.
+2. If asked to modify a guarded region, inform the user and request explicit
+   confirmation referencing the block ID before proceeding.
+3. If proceeding with permission, generate a `pvnc.guard_removed` commit message
+   as the first step before making any change:
+   `pvnc.guard_removed: <block-id> : <reason>`
+4. When replacing a guard after removal, generate a new `pvnc.guard_start`/`pvnc.guard_end`
+   block with a new block ID and an accompanying `<pvnc>` annotation.

@@ -11,6 +11,13 @@ const FIELD_COMPLETIONS: vscode.CompletionItem[] = [
   makeItem('see-also',      'Cross-references: file paths or IDs (comma-separated)',   'see-also: ${1:path/to/file.py}',                                        vscode.CompletionItemKind.Reference),
 ];
 
+// Code Guard markers — only valid as standalone line comments, not inside blocks.
+const GUARD_COMPLETIONS: vscode.CompletionItem[] = [
+  makeItem('guard_start',   'Open a Code Guard region — nothing inside may change without a guard_removed commit',   'guard_start: ${1:block-id}',                       vscode.CompletionItemKind.Interface),
+  makeItem('guard_end',     'Close a Code Guard region — block ID must match the guard_start above',                 'guard_end: ${1:block-id}',                         vscode.CompletionItemKind.Interface),
+  makeItem('guard_removed', 'Declare intent to remove a guard (commit this alone before making the change)',         'guard_removed: ${1:block-id} : ${2:reason}',       vscode.CompletionItemKind.Interface),
+];
+
 const SYSTEM_SNIPPETS: Record<string, { detail: string; snippet: string }> = {
   github:     { detail: 'GitHub issue',           snippet: 'github: ${1:issue-number}'  },
   jira:       { detail: 'Jira ticket',            snippet: 'jira: ${1:PROJ-123}'        },
@@ -55,13 +62,14 @@ export class AiContextCompletionProvider implements vscode.CompletionItemProvide
     const completions = [...configuredSystemCompletions(this.config), ...FIELD_COMPLETIONS];
 
     // Inline pvnc.* annotation: // pvnc.<partial-key>  or  # pvnc.<partial-key>
+    // Guard markers are only valid here, not inside <pvnc> blocks.
     if (/^[ \t]*(?:[#*]|\/\/)\s*pvnc\.[\w-]*$/.test(textBeforeCursor)) {
-      return completions;
+      return [...completions, ...GUARD_COMPLETIONS];
     }
 
     if (!this.insideAiContextBlock(document, position)) return undefined;
 
-    // At the start of a line inside a block — suggest keys and ticket systems.
+    // At the start of a line inside a block — suggest keys and ticket systems only.
     if (/^[ \t*#/]*[\w-]*$/.test(textBeforeCursor)) {
       return completions;
     }

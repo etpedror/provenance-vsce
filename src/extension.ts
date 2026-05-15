@@ -5,14 +5,26 @@ import { DoNotChangeWatcher } from './providers/doNotChangeWatcher';
 import { AiContextCompletionProvider, TRIGGER_CHARACTERS } from './providers/completionProvider';
 import { AnnotationTreeProvider } from './providers/annotationTreeProvider';
 import { addAnnotation } from './commands/addAnnotation';
-import { setupInstructions } from './commands/setupInstructions';
+import { resetInstructions, setupInstructions, writeProvenanceMd } from './commands/setupInstructions';
 import { setupPvncConfig } from './commands/setupPvncConfig';
+import { removeGuard } from './commands/removeGuard';
+import { runCodeGuardCheck } from './commands/runCodeGuardCheck';
 import { invalidateCache } from './parser';
+import { invalidateGuardCache } from './guardParser';
 import { loadPvncConfig } from './pvncConfig';
 import { clearTicketCache, initTicketFetcher } from './ticketFetcher';
+import { GuardGutterProvider } from './providers/guardGutterProvider';
+import { GuardWatcher } from './providers/guardWatcher';
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+
+  // Keep .pvnc/PROVENANCE.md current on every activation — it is a managed
+  // artefact, not user content, so silent overwrite is intentional.
+  if (workspaceRoot) {
+    try { writeProvenanceMd(workspaceRoot); } catch { /* non-fatal */ }
+  }
+
   const pvncConfig = loadPvncConfig(workspaceRoot);
 
   const outputChannel = vscode.window.createOutputChannel('Provenance');
@@ -41,6 +53,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Warning when editing code guarded by <do-not-change>.
   context.subscriptions.push(new DoNotChangeWatcher());
+
+  // Code Guard: gutter shield icons + region tint + edit warning.
+  context.subscriptions.push(new GuardGutterProvider(context));
+  context.subscriptions.push(new GuardWatcher());
 
   // Sidebar annotations panel.
   const treeProvider = new AnnotationTreeProvider();
@@ -127,14 +143,34 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('provenance.setupInstructions', setupInstructions),
   );
 
+  // Reset command: force-refresh the pointer block in all agent instruction files
+  context.subscriptions.push(
+    vscode.commands.registerCommand('provenance.resetInstructions', resetInstructions),
+  );
+
   // Setup command: create .pvnc/config.json for this workspace
   context.subscriptions.push(
     vscode.commands.registerCommand('provenance.setupPvncConfig', setupPvncConfig),
   );
 
+  // Code Guard: scaffold pvnc.guard_removed commit message
+  context.subscriptions.push(
+    vscode.commands.registerCommand('provenance.removeGuard', (blockId?: string) =>
+      removeGuard(blockId),
+    ),
+  );
+
+  // Code Guard: run the diff check against the remote base branch
+  context.subscriptions.push(
+    vscode.commands.registerCommand('provenance.runCodeGuardCheck', runCodeGuardCheck),
+  );
+
   // Keep the parse cache coherent when a file is closed or deleted.
   context.subscriptions.push(
-    vscode.workspace.onDidCloseTextDocument(doc => invalidateCache(doc.uri)),
+    vscode.workspace.onDidCloseTextDocument(doc => {
+      invalidateCache(doc.uri);
+      invalidateGuardCache(doc.uri);
+    }),
   );
 }
 

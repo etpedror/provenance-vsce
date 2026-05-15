@@ -1,0 +1,32 @@
+# Provenance Code Guard — pre-commit hook registry
+#
+# Allows any repo to consume the Code Guard check via the pre-commit framework:
+#
+#   # .pre-commit-config.yaml in the target repo
+#   repos:
+#     - repo: https://github.com/etpedror/provenance-vsce
+#       rev: v1.1.0          # pin to a release tag
+#       hooks:
+#         - id: codeguard
+#
+# The hook runs at push time (not commit time) because the two-commit workflow
+# requires the guard_removed commit to already exist in the local history before
+# the modifying commit is pushed. Running at commit time would incorrectly flag
+# the second commit before the first is in place.
+#
+# Override the base ref if your default branch is not origin/main:
+#
+#   hooks:
+#     - id: codeguard
+#       args: [--base, origin/develop]
+
+- id: codeguard
+  name: Provenance Code Guard
+  description: >
+    Fails if any pvnc.guard_start/pvnc.guard_end region was modified without a
+    preceding pvnc.guard_removed declaration in the commit history.
+  language: python
+  entry: ci/check-codeguard.py
+  pass_filenames: false
+  stages: [push]
+  always_run: true

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { parseDocument } from './parser';
-import { AiContextAnnotation, AiContextBlock, TextDocumentLike } from './types';
+import { parseGuards } from './guardParser';
+import { AiContextAnnotation, AiContextBlock, GuardRegion, TextDocumentLike } from './types';
 
 export type SourceCategory = 'ai' | 'human' | 'unknown';
 
@@ -20,6 +21,9 @@ export interface DocumentMetrics {
   doNotChangeCount: number;
   missingRequirementCount: number;
   missingReasonCount: number;
+  guardCount: number;
+  documentedGuardCount: number;
+  malformedGuardCount: number;
   hasProvenance: boolean;
   hasAi: boolean;
   hasHuman: boolean;
@@ -43,6 +47,9 @@ export interface WorkspaceMetrics {
   doNotChangeCount: number;
   missingRequirementCount: number;
   missingReasonCount: number;
+  guardCount: number;
+  documentedGuardCount: number;
+  malformedGuardCount: number;
 }
 
 export function getBlockCategory(block: AiContextBlock): SourceCategory {
@@ -61,6 +68,7 @@ export function getAnnotationCategory(annotation: AiContextAnnotation): SourceCa
 export function computeDocumentMetrics(
   document: TextDocumentLike,
   annotations = parseDocument(document),
+  guards: GuardRegion[] = parseGuards(document, annotations),
 ): DocumentMetrics {
   const lineCategories = new Map<number, SourceCategory>();
   let aiBlockCount = 0;
@@ -123,6 +131,10 @@ export function computeDocumentMetrics(
 
   const blockCount = annotations.reduce((sum, annotation) => sum + annotation.blocks.length, 0);
 
+  const guardCount = guards.length;
+  const malformedGuardCount = guards.filter(g => g.isMalformed).length;
+  const documentedGuardCount = guards.filter(g => !g.isMalformed && g.associatedAnnotation !== undefined).length;
+
   return {
     uri: document.uri,
     lineCount: document.lineCount,
@@ -139,6 +151,9 @@ export function computeDocumentMetrics(
     doNotChangeCount,
     missingRequirementCount,
     missingReasonCount,
+    guardCount,
+    documentedGuardCount,
+    malformedGuardCount,
     hasProvenance: annotations.length > 0,
     hasAi: aiBlockCount > 0,
     hasHuman: humanBlockCount > 0,
@@ -164,6 +179,9 @@ export function emptyWorkspaceMetrics(): WorkspaceMetrics {
     doNotChangeCount: 0,
     missingRequirementCount: 0,
     missingReasonCount: 0,
+    guardCount: 0,
+    documentedGuardCount: 0,
+    malformedGuardCount: 0,
   };
 }
 
@@ -188,6 +206,9 @@ export function aggregateWorkspaceMetrics(documents: Iterable<DocumentMetrics>):
     total.doNotChangeCount += doc.doNotChangeCount;
     total.missingRequirementCount += doc.missingRequirementCount;
     total.missingReasonCount += doc.missingReasonCount;
+    total.guardCount += doc.guardCount;
+    total.documentedGuardCount += doc.documentedGuardCount;
+    total.malformedGuardCount += doc.malformedGuardCount;
   }
 
   return total;

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { parseDocument } from '../parser';
+import { findGuardMarkerAtLine, parseGuards } from '../guardParser';
 import { AiContextAnnotation, AiContextBlock } from '../types';
 import { PvncConfig } from '../pvncConfig';
 import { fetchTicket } from '../ticketFetcher';
@@ -26,6 +27,15 @@ export class AiContextHoverProvider implements vscode.HoverProvider {
     position: vscode.Position,
   ): Promise<vscode.Hover | undefined> {
     const annotations = parseDocument(document);
+
+    // Guard marker hover takes precedence over annotation hover.
+    if (vscode.workspace.getConfiguration('provenance.codeGuard').get<boolean>('enabled', true)) {
+      const regions = parseGuards(document, annotations);
+      const guardAtLine = findGuardMarkerAtLine(position.line, regions);
+      if (guardAtLine) {
+        return buildGuardHover(guardAtLine);
+      }
+    }
 
     for (const ann of annotations) {
       if (
@@ -98,4 +108,46 @@ async function appendBlock(md: vscode.MarkdownString, block: AiContextBlock, con
   if (block.seeAlso.length > 0) {
     md.appendMarkdown(`**See also:** ${block.seeAlso.map(r => `\`${r}\``).join(', ')}\n\n`);
   }
+}
+
+function buildGuardHover(region: import('../types').GuardRegion): vscode.Hover {
+  const md = new vscode.MarkdownString('', true);
+  md.supportHtml = true;
+  md.isTrusted = true;
+
+  md.appendMarkdown(`**🛡 Code Guard** — \`${region.blockId}\`\n\n`);
+  md.appendMarkdown('---\n\n');
+
+  if (region.isMalformed) {
+    const msg = region.isOrphanedEnd
+      ? `**⚠ Orphaned guard_end** — no matching \`pvnc.guard_start: ${region.blockId}\` found.\n\nCheck for a typo in the block ID or the \`pvnc.guard_start:\` keyword.`
+      : `**⚠ Malformed guard** — no matching \`pvnc.guard_end: ${region.blockId}\` found.\n\nCheck for a typo in the block ID or the \`pvnc.guard_end:\` keyword.`;
+    md.appendMarkdown(
+      `<div style="border-left: 3px solid #e74c3c; padding-left: 8px; color: #e74c3c;">\n\n` +
+      `${msg}\n\n` +
+      `</div>\n\n`,
+    );
+  } else {
+    md.appendMarkdown(
+      `<div style="border-left: 3px solid #E8A838; padding-left: 8px;">\n\n` +
+      `This region is protected. Modifications require a preceding \`pvnc.guard_removed\` commit.\n\n` +
+      `</div>\n\n`,
+    );
+
+    if (region.associatedAnnotation) {
+      const blocks = region.associatedAnnotation.blocks;
+      const reqs = blocks.flatMap(b => b.requirements);
+      if (reqs.length > 0) {
+        md.appendMarkdown(`**Linked requirement:** ${reqs.map(r => `\`${r.id}\`${r.system ? ` *(${r.system})*` : ''}`).join(', ')}\n\n`);
+      }
+      const reasons = blocks.flatMap(b => b.reasons);
+      if (reasons.length > 0) {
+        md.appendMarkdown(`**Reason:** ${reasons[0]}\n\n`);
+      }
+    }
+
+    md.appendMarkdown(`Run **Provenance: Remove guard** to scaffold the removal commit message.`);
+  }
+
+  return new vscode.Hover(md);
 }

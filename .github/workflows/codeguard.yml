@@ -1,0 +1,81 @@
+name: Code Guard
+
+on:
+  pull_request:
+    branches: ['**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  codeguard:
+    name: Check guarded regions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Code Guard check
+        id: check
+        run: |
+          python ci/check-codeguard.py \
+            --base origin/${{ github.base_ref }} \
+            --head ${{ github.sha }} \
+            --github-output
+        # Allow the step to finish so the comment step always runs.
+        continue-on-error: true
+
+      - name: Post or update PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Read the step summary written by --github-output.
+            const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+            const body = summaryPath && fs.existsSync(summaryPath)
+              ? fs.readFileSync(summaryPath, 'utf8')
+              : '_Code Guard output unavailable._';
+
+            const marker = '<!-- provenance-codeguard -->';
+            const comment = `${marker}\n${body}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
+
+      - name: Fail if violations found
+        if: steps.check.outputs.result == 'fail'
+        run: |
+          echo "Code Guard violations detected. See the PR comment for details."
+          exit 1

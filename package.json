@@ -98,6 +98,10 @@
         "title": "Provenance: Set up AI assistant instructions"
       },
       {
+        "command": "provenance.resetInstructions",
+        "title": "Provenance: Reset AI assistant instructions"
+      },
+      {
         "command": "provenance.setupPvncConfig",
         "title": "Provenance: Set up workspace config"
       },
@@ -120,6 +124,14 @@
         "command": "provenance.refreshAnnotations",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "provenance.removeGuard",
+        "title": "Provenance: Remove guard"
+      },
+      {
+        "command": "provenance.runCodeGuardCheck",
+        "title": "Provenance: Run Code Guard check"
       }
     ],
     "configuration": {
@@ -144,6 +156,36 @@
           "type": "number",
           "default": 30,
           "description": "How many lines below an annotation are treated as guarded (used for do-not-change warnings and hover). Increase for long functions."
+        },
+        "provenance.codeGuard.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Code Guard — structural protection of marked regions via pvnc.guard_start / pvnc.guard_end markers."
+        },
+        "provenance.codeGuard.gutterHighlight": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a shield gutter icon on pvnc.guard_start and pvnc.guard_end lines."
+        },
+        "provenance.codeGuard.regionTint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Apply a background tint to lines inside a guarded region."
+        },
+        "provenance.codeGuard.regionTintColour": {
+          "type": "string",
+          "default": "#ff000011",
+          "description": "CSS colour used for the guarded region background tint (supports rgba / 8-digit hex)."
+        },
+        "provenance.codeGuard.warnOnEdit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning when editing lines inside a guarded region."
+        },
+        "provenance.codeGuard.ciStrictMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reserved for CI / pre-commit hook integration — strict mode blocks changes to guarded regions without a preceding guard_removed commit."
         },
         "provenance.ticketSystems": {
           "type": "object",
@@ -219,6 +261,15 @@
           "dark": "#C586C0",
           "light": "#795E26",
           "highContrast": "#C586C0"
+        }
+      },
+      {
+        "id": "provenance.guardMarkerForeground",
+        "description": "Colour used for Code Guard shield gutter icons and hover highlights.",
+        "defaults": {
+          "dark": "#E8A838",
+          "light": "#B07010",
+          "highContrast": "#E8A838"
         }
       }
     ],

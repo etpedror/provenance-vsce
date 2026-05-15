@@ -14,7 +14,7 @@ const BETWEEN_RE = /^[\s"'`*#/|\\!;.,\-()[\]{}@]*$/;
 // ── Inline pvnc format ────────────────────────────────────────────────────────
 
 // Matches: # pvnc.req: VALUE  or  // pvnc.source: VALUE  etc.
-const PVNC_LINE_RE = /^[ \t]*(?:[#*]|\/\/)\s*pvnc\.([\w-]+):\s*(.*)/;
+const PVNC_LINE_RE = /^[ \t]*(?:[#*]|\/\/)\s*pvnc\.([\w-]+)\s*:\s*(.*)/;
 
 /** Known non-ticket keys inside a <pvnc> block or pvnc.* inline annotation. */
 export const KNOWN_KEYS = ['reason', 'invariant', 'do-not-change', 'source', 'see-also'] as const;

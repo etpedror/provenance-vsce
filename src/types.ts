@@ -36,6 +36,23 @@ export interface AiContextBlock {
   endLine: number;
 }
 
+export interface GuardRegion {
+  blockId: string;
+  /** Line index of pvnc.guard_start */
+  startLine: number;
+  /** Line index of pvnc.guard_end — undefined if malformed (missing end) */
+  endLine: number | undefined;
+  /** True when end is missing or when a nested guard is detected */
+  isMalformed: boolean;
+  /**
+   * True when this region represents an orphaned guard_end (end marker with no
+   * matching start). startLine holds the orphaned end's line for decoration.
+   */
+  isOrphanedEnd?: boolean;
+  /** Annotation whose block ends on the line immediately before startLine */
+  associatedAnnotation?: AiContextAnnotation;
+}
+
 export interface AiContextAnnotation {
   /** Consecutive <pvnc> blocks that form one logical annotation. */
   blocks: AiContextBlock[];

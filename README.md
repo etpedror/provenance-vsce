@@ -15,7 +15,9 @@ and Slack threads — invisible at the point of consumption.
 
 **Provenance** solves this with a lightweight annotation convention that travels
 with the code, and a VS Code extension that makes it visible, searchable, and
-linked to live ticket data.
+linked to live ticket data. For regions that must never change, **Code Guard**
+adds structural fences with explicit boundaries, gutter indicators, and CI
+enforcement.
 
 ---
 
@@ -114,6 +116,125 @@ fn apply_food_exemption(order: &Order) -> bool {
 
 ---
 
+## Code Guard
+
+Code Guard adds **structural fences** around regions that must not change. Where
+`do-not-change:` is an advisory annotation (fuzzy scope, no enforcement), a guard
+is an explicit start/end boundary with CI enforcement and a mandatory two-commit
+removal workflow.
+
+### Marking a guarded region
+
+```python
+# <pvnc>
+#     jira: HMRC-001
+#     reason: HMRC 2026-Q1 food exemption rules — audited annually
+#     do-not-change: HMRC compliance
+#     source: human
+# </pvnc>
+# pvnc.guard_start: block-hmrc-001
+if order.category == "food" and order.sugar_content <= 2:
+    tax = 0.0
+if order.salt_content > 10:
+    tax *= 1.05
+# pvnc.guard_end: block-hmrc-001
+```
+
+- Block IDs are arbitrary strings — make them meaningful
+- Block ID must match exactly between `guard_start` and `guard_end`
+- Guards work in any language with line comments
+- A `<pvnc>` annotation immediately before `guard_start` documents the requirement; the metrics panel distinguishes documented from undocumented guards
+
+### Removing a guard (two-commit workflow)
+
+Before modifying a guarded region, commit a removal declaration first:
+
+```python
+# pvnc.guard_removed: block-hmrc-001 : New HMRC directive 2026-Q2 supersedes previous rule
+```
+
+**Commit 1** — the `pvnc.guard_removed` declaration with reason  
+**Commit 2** — the actual change, optionally replacing with a new guard
+
+Run **`Provenance: Remove guard`** from the Command Palette to scaffold the
+declaration and commit message automatically.
+
+### `do-not-change` vs Code Guard
+
+| | `do-not-change:` | Code Guard |
+| --- | --- | --- |
+| Type | Advisory annotation field | Structural fence |
+| Scope | Inferred from proximity (up to 30 lines) | Explicit `guard_start` / `guard_end` |
+| AI instruction | Soft warning | Hard boundary |
+| CI enforcement | Optional | Built-in |
+| Referenceable by ID | No | Yes |
+| Removal ceremony | None | Two-commit workflow |
+
+Use `do-not-change:` for lightweight, single-function protection with a documented
+reason. Use Code Guard when you need precise boundaries, CI enforcement, and a
+formal audit trail for the removal. They work best together — place a `<pvnc>`
+block with `do-not-change:` immediately before `guard_start` to get both.
+
+---
+
+## CI enforcement for Code Guard
+
+The `ci/` folder contains a Python script and ready-to-use pipeline files that
+enforce the two-commit workflow on every pull request. All three platforms invoke
+the same core logic — no duplication.
+
+### Core script — `ci/check-codeguard.py`
+
+```bash
+python ci/check-codeguard.py [--base <ref>] [--head <ref>]
+```
+
+Analyses the diff between `base` and `head`, identifies any lines inside a
+guarded region that were modified, and checks the commit history for a
+`pvnc.guard_removed` declaration matching the block ID. Exits `0` (clean) or
+`1` (violations). Also warns on stale declarations and malformed guards.
+
+Copy `ci/check-codeguard.py` into your own repo to use it with any of the
+integrations below.
+
+### GitHub Actions
+
+Copy `.github/workflows/codeguard.yml` into your repo. It triggers on every PR,
+posts a summary comment (updating it on re-runs rather than adding duplicates),
+and fails the check if any guard is violated.
+
+### Azure DevOps
+
+Copy `ci/azure-codeguard.yml` into your repo and reference it from your pipeline
+settings. Requires no additional dependencies beyond Python 3.11+.
+
+### Pre-commit (local enforcement)
+
+Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/etpedror/provenance-vsce
+    rev: v1.1.0          # pin to a release tag
+    hooks:
+      - id: codeguard
+```
+
+The hook runs at `push` stage (not commit stage) because the two-commit workflow
+needs the `guard_removed` commit to be in local history before the modifying
+commit is pushed.
+
+### CI check behaviour
+
+| Condition | Result |
+| --- | --- |
+| Guard region modified, no preceding `guard_removed` | Fail — block PR |
+| Guard region modified, `guard_removed` in prior commit | Pass |
+| `guard_start` without matching `guard_end` | Warn — malformed guard |
+| `guard_removed` declared but no change made | Warn — stale declaration |
+
+---
+
 ## Ticket system keys
 
 The ticket system name is the key. Any key not reserved by Provenance is treated
@@ -183,6 +304,10 @@ Reason: Restrict hover to annotation comment lines only
 Authored by: 🤖 ai.claude
 ```
 
+Hovering over a `pvnc.guard_start` or `pvnc.guard_end` line shows the block ID,
+the linked requirement from the associated `<pvnc>` annotation, and a reminder of
+the removal workflow.
+
 GitHub issues are fetched using your existing VS Code GitHub login — no token
 setup required. Other systems require a PAT stored in VS Code's encrypted secret
 storage (see workspace config below).
@@ -191,7 +316,15 @@ storage (see workspace config below).
 
 A small icon appears in the editor gutter next to every annotated line,
 colour-coded by authorship: teal chip for AI, orange person for human, gray
-shield when unspecified.
+shield when unspecified. `pvnc.guard_start` and `pvnc.guard_end` lines show
+a distinct amber shield icon; malformed guards (missing end marker) show the
+icon with a warning label.
+
+### Code Guard region tint
+
+Lines within a guarded region receive a configurable background tint (default:
+faint red). Editing any interior line triggers a non-blocking warning with a
+**Scaffold removal** button that launches the **Remove guard** command.
 
 ### Do-not-change warnings
 
@@ -204,9 +337,15 @@ tooltip to make it unmissable.
 The **Provenance** sidebar panel starts with a lazy index of opened files, then
 updates as files are opened or edited. Use **Analyze Workspace** to run a full
 scan and collect workspace-wide metrics: files with provenance, AI vs human
-authorship split, estimated annotated code lines, and `do-not-change` counts.
-Use the **search icon** to filter by ticket ID, system, author, or reason text.
-Click any entry to jump to that line.
+authorship split, estimated annotated code lines, `do-not-change` counts, and
+guard region density.
+
+A **Guards** section appears in the panel whenever guard regions are found,
+listing each block ID, its file and line range, and whether it has a linked
+`<pvnc>` annotation. Click any entry to navigate to the guard marker.
+
+Use the **search icon** to filter annotations by ticket ID, system, author, or
+reason text.
 
 ### Explorer badges
 
@@ -221,6 +360,13 @@ cursor, prompting for ticket ID, system, reason, and authorship. The block is
 wrapped in the correct comment style for the active language. Autocomplete
 suggests all configured ticket system keys inside blocks and after `pvnc.`.
 
+### Remove guard command
+
+**Command Palette → `Provenance: Remove guard`** prompts for the block ID (pre-
+filled from the active document if only one guard is present) and a removal
+reason, then opens an output channel with the ready-to-paste `pvnc.guard_removed`
+declaration and commit message. Copy either to the clipboard with one click.
+
 ### Set up workspace config
 
 **Command Palette → `Provenance: Set up workspace config`** creates
@@ -231,7 +377,8 @@ Commit this file so all team members share the same configuration.
 ### Set up AI assistant instructions
 
 **Command Palette → `Provenance: Set up AI assistant instructions`** writes
-standing instructions into your workspace for every major AI coding assistant:
+standing instructions into your workspace for every major AI coding assistant,
+including the Code Guard rules:
 
 | File | Agent |
 | ---- | ----- |
@@ -294,8 +441,28 @@ storage — never in this file.
   // Warn when editing code guarded by do-not-change (default: true)
   "provenance.warnOnDoNotChange": true,
 
-  // Lines below an annotation treated as guarded (default: 30)
-  "provenance.guardedRangeLines": 30
+  // Lines below an annotation treated as guarded for do-not-change (default: 30)
+  "provenance.guardedRangeLines": 30,
+
+  // ── Code Guard ───────────────────────────────────────────────────
+
+  // Enable Code Guard features globally (default: true)
+  "provenance.codeGuard.enabled": true,
+
+  // Shield gutter icon on guard_start / guard_end lines (default: true)
+  "provenance.codeGuard.gutterHighlight": true,
+
+  // Background tint on lines inside a guarded region (default: true)
+  "provenance.codeGuard.regionTint": true,
+
+  // Colour for the region tint — supports rgba / 8-digit hex (default: "#ff000011")
+  "provenance.codeGuard.regionTintColour": "#ff000011",
+
+  // Warn when editing inside a guarded region (default: true)
+  "provenance.codeGuard.warnOnEdit": true,
+
+  // Reserved for CI / pre-commit hook integration (default: true)
+  "provenance.codeGuard.ciStrictMode": true
 }
 ```
 
@@ -315,6 +482,16 @@ When modifying code that contains <pvnc> / <provenance> blocks or pvnc.* comment
 4. Never remove or rewrite existing annotations.
 5. Never remove or simplify code marked with do-not-change without explicit instruction.
 6. Always include a source: key identifying the authorship of the new code.
+
+Code Guard rules:
+1. Never modify code between pvnc.guard_start and pvnc.guard_end markers.
+2. If asked to modify a guarded region, inform the user and request explicit
+   confirmation referencing the block ID before proceeding.
+3. If proceeding with permission, generate a pvnc.guard_removed commit message
+   as the first step before making any change:
+   pvnc.guard_removed: <block-id> : <reason>
+4. When replacing a guard after removal, generate a new pvnc.guard_start/end
+   block with a new block ID and an accompanying <pvnc> annotation.
 ```
 
 ---
@@ -324,7 +501,8 @@ When modifying code that contains <pvnc> / <provenance> blocks or pvnc.* comment
 Python · TypeScript · JavaScript · Java · C# · C/C++ · Rust · Go · Ruby · PHP · Kotlin · Swift · and any other language with line or block comments
 
 Both the `<pvnc>` / `<provenance>` block and `pvnc.*` inline formats are
-parser-agnostic — they work in any file regardless of comment style.
+parser-agnostic — they work in any file regardless of comment style. Code Guard
+markers are plain line comments and work in any language that supports them.
 
 ---
 
