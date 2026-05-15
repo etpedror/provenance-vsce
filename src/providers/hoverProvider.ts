@@ -42,11 +42,11 @@ export class AiContextHoverProvider implements vscode.HoverProvider {
 
 async function buildHover(ann: AiContextAnnotation, config: PvncConfig): Promise<vscode.Hover> {
   const md = new vscode.MarkdownString('', true);
-  md.supportHtml = false;
+  md.supportHtml = true;
   md.isTrusted = true;
 
   const count = ann.blocks.length;
-  md.appendMarkdown(count > 1 ? `**ai-context** — ${count} entries\n\n` : `**ai-context**\n\n`);
+  md.appendMarkdown(count > 1 ? `**provenance** — ${count} entries\n\n` : `**provenance**\n\n`);
   md.appendMarkdown('---\n\n');
 
   for (let i = 0; i < ann.blocks.length; i++) {
@@ -83,7 +83,11 @@ async function appendBlock(md: vscode.MarkdownString, block: AiContextBlock, con
 
   if (block.doNotChange !== undefined) {
     const label = block.doNotChange || 'no reason given';
-    md.appendMarkdown(`**⚠ Do not change:** ${label}\n\n`);
+    md.appendMarkdown(
+      `<div style="border-left: 3px solid #e74c3c; padding-left: 8px; color: #e74c3c;">\n\n` +
+      `**🚫 DO NOT CHANGE** — ${label}\n\n` +
+      `</div>\n\n`,
+    );
   }
 
   if (block.source) {

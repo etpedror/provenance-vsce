@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider(
       { scheme: 'file', pattern: '**/*' },
-      new AiContextCompletionProvider(),
+      new AiContextCompletionProvider(pvncConfig),
       ...TRIGGER_CHARACTERS,
     ),
   );

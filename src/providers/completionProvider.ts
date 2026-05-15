@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-
-const KNOWN_SYSTEMS = ['github', 'jira', 'ado', 'linear', 'confluence'] as const;
+import { PvncConfig } from '../pvncConfig';
 
 // Keys that work inside <pvnc> blocks or as pvnc.<key> inline annotations.
 // Ticket systems (github, jira, …) are also valid but listed separately.
@@ -12,15 +11,19 @@ const FIELD_COMPLETIONS: vscode.CompletionItem[] = [
   makeItem('see-also',      'Cross-references: file paths or IDs (comma-separated)',   'see-also: ${1:path/to/file.py}',                                        vscode.CompletionItemKind.Reference),
 ];
 
-const SYSTEM_COMPLETIONS: vscode.CompletionItem[] = [
-  makeItem('github',     'GitHub issue',           'github: ${1:issue-number}',    vscode.CompletionItemKind.Field),
-  makeItem('jira',       'Jira ticket',            'jira: ${1:PROJ-123}',          vscode.CompletionItemKind.Field),
-  makeItem('ado',        'Azure DevOps work item', 'ado: ${1:work-item-id}',       vscode.CompletionItemKind.Field),
-  makeItem('linear',     'Linear issue',           'linear: ${1:TEAM-123}',        vscode.CompletionItemKind.Field),
-  makeItem('confluence', 'Confluence page',        'confluence: ${1:page/path}',   vscode.CompletionItemKind.Field),
-];
+const SYSTEM_SNIPPETS: Record<string, { detail: string; snippet: string }> = {
+  github:     { detail: 'GitHub issue',           snippet: 'github: ${1:issue-number}'  },
+  jira:       { detail: 'Jira ticket',            snippet: 'jira: ${1:PROJ-123}'        },
+  ado:        { detail: 'Azure DevOps work item', snippet: 'ado: ${1:work-item-id}'     },
+  linear:     { detail: 'Linear issue',           snippet: 'linear: ${1:TEAM-123}'      },
+  confluence: { detail: 'Confluence page',        snippet: 'confluence: ${1:page/path}' },
+};
 
-const BLOCK_COMPLETIONS = [...SYSTEM_COMPLETIONS, ...FIELD_COMPLETIONS];
+function configuredSystemCompletions(config: PvncConfig): vscode.CompletionItem[] {
+  return Object.keys(config)
+    .filter(k => k in SYSTEM_SNIPPETS)
+    .map(k => makeItem(k, SYSTEM_SNIPPETS[k].detail, SYSTEM_SNIPPETS[k].snippet, vscode.CompletionItemKind.Field));
+}
 
 function makeItem(
   key: string,
@@ -37,23 +40,30 @@ function makeItem(
 }
 
 export class AiContextCompletionProvider implements vscode.CompletionItemProvider {
+  private readonly config: PvncConfig;
+
+  constructor(config: PvncConfig) {
+    this.config = config;
+  }
+
   provideCompletionItems(
     document: vscode.TextDocument,
     position: vscode.Position,
   ): vscode.CompletionItem[] | undefined {
     const lineText = document.lineAt(position).text;
     const textBeforeCursor = lineText.slice(0, position.character);
+    const completions = [...configuredSystemCompletions(this.config), ...FIELD_COMPLETIONS];
 
     // Inline pvnc.* annotation: // pvnc.<partial-key>  or  # pvnc.<partial-key>
     if (/^[ \t]*(?:[#*]|\/\/)\s*pvnc\.[\w-]*$/.test(textBeforeCursor)) {
-      return BLOCK_COMPLETIONS;
+      return completions;
     }
 
     if (!this.insideAiContextBlock(document, position)) return undefined;
 
     // At the start of a line inside a block — suggest keys and ticket systems.
     if (/^[ \t*#/]*[\w-]*$/.test(textBeforeCursor)) {
-      return BLOCK_COMPLETIONS;
+      return completions;
     }
 
     return undefined;
@@ -77,4 +87,3 @@ export class AiContextCompletionProvider implements vscode.CompletionItemProvide
 
 export const TRIGGER_CHARACTERS = ['\n', ' ', '-', '.'];
 
-void KNOWN_SYSTEMS; // referenced by setupPvncConfig for system list
