@@ -10,10 +10,11 @@ import {
   aggregateWorkspaceMetrics,
   computeDocumentMetrics,
 } from '../metrics';
+import { getStore } from '../contributions/store';
 
 // ---------- tree node types ----------
 
-type SectionKind = 'metrics' | 'annotations' | 'guards';
+type SectionKind = 'metrics' | 'annotations' | 'guards' | 'contributions';
 
 export class SectionNode extends vscode.TreeItem {
   readonly kind = 'section';
@@ -137,7 +138,46 @@ export class GuardNode extends vscode.TreeItem {
   }
 }
 
-type TreeNode = SectionNode | FileNode | BlockNode | MetricsNode | GuardNode;
+export class ContributionSourceNode extends vscode.TreeItem {
+  readonly kind = 'contributionSource';
+
+  constructor(
+    readonly source: string,
+    events: number,
+    lines: number,
+  ) {
+    super(source, vscode.TreeItemCollapsibleState.Collapsed);
+    this.description = `${events} event${events !== 1 ? 's' : ''} · ${lines} lines`;
+    this.iconPath = new vscode.ThemeIcon(source.startsWith('ai.') ? 'chip' : 'shield');
+    this.contextValue = 'provenanceContributionSource';
+  }
+}
+
+export class ContributionFileNode extends vscode.TreeItem {
+  readonly kind = 'contributionFile';
+
+  constructor(
+    readonly file: string,
+    events: number,
+    lines: number,
+    workspaceRoot: string,
+  ) {
+    super(path.basename(file), vscode.TreeItemCollapsibleState.None);
+    this.description = `${events} event${events !== 1 ? 's' : ''} · ${lines} lines`;
+    this.tooltip = file;
+    this.iconPath = vscode.ThemeIcon.File;
+    this.contextValue = 'provenanceContributionFile';
+
+    const absPath = path.join(workspaceRoot, file);
+    this.command = {
+      command: 'vscode.open',
+      title: 'Open file',
+      arguments: [vscode.Uri.file(absPath)],
+    };
+  }
+}
+
+type TreeNode = SectionNode | FileNode | BlockNode | MetricsNode | GuardNode | ContributionSourceNode | ContributionFileNode;
 
 interface BlockRef {
   annotation: AiContextAnnotation;
@@ -185,11 +225,9 @@ function fileIcon(metrics: DocumentMetrics): vscode.ThemeIcon {
 
 // ---------- provider ----------
 
-export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>, vscode.FileDecorationProvider {
+export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _onChange = new vscode.EventEmitter<TreeNode | undefined>();
   readonly onDidChangeTreeData = this._onChange.event;
-  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
-  readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
   private filter = '';
   private treeView: vscode.TreeView<TreeNode> | undefined;
@@ -227,31 +265,12 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
       guards,
     });
     this.updateMessage();
-    this._onDidChangeFileDecorations.fire(document.uri);
   }
 
   removeDocument(uri: vscode.Uri): void {
     this.indexed.delete(uri.toString());
     this.updateMessage();
-    this._onDidChangeFileDecorations.fire(uri);
     this.refresh();
-  }
-
-  refreshDecorations(): void {
-    this._onDidChangeFileDecorations.fire(undefined);
-  }
-
-  provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    const enabled = vscode.workspace
-      .getConfiguration('provenance')
-      .get<boolean>('explorerFileBadges', false);
-
-    if (!enabled) return undefined;
-
-    const entry = this.indexed.get(uri.toString());
-    if (!entry?.metrics.hasProvenance) return undefined;
-
-    return explorerDecoration(entry.metrics);
   }
 
   async analyzeWorkspace(): Promise<void> {
@@ -325,15 +344,19 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
 
   async getChildren(node?: TreeNode): Promise<TreeNode[]> {
     if (node instanceof SectionNode) {
-      if (node.section === 'metrics') return this.buildMetricNodes();
-      if (node.section === 'guards') return this.buildGuardNodes();
+      if (node.section === 'metrics')       return this.buildMetricNodes();
+      if (node.section === 'guards')        return this.buildGuardNodes();
+      if (node.section === 'contributions') return this.buildContributionSourceNodes();
       return this.buildFileNodes();
     }
 
     if (node instanceof FileNode) {
       return node.blocks.map(ref => new BlockNode(node.uri, ref.annotation, ref.block));
     }
-    if (node instanceof MetricsNode || node instanceof GuardNode) {
+    if (node instanceof ContributionSourceNode) {
+      return this.buildContributionFileNodes(node.source);
+    }
+    if (node instanceof MetricsNode || node instanceof GuardNode || node instanceof ContributionFileNode) {
       return [];
     }
 
@@ -344,6 +367,9 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
 
     const guardSection = this.buildGuardsSection();
     if (guardSection) sections.push(guardSection);
+
+    const contribSection = this.buildContributionsSection();
+    if (contribSection) sections.push(contribSection);
 
     return sections;
   }
@@ -430,6 +456,51 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
     ];
   }
 
+  private buildContributionsSection(): SectionNode | undefined {
+    const store = getStore();
+    if (!store) return undefined;
+
+    const { bySource } = store.getSummary();
+    const totalEvents = Object.values(bySource).reduce((s, v) => s + v.events, 0);
+    if (totalEvents === 0) return undefined;
+
+    const aiSources = Object.keys(bySource).filter(s => s.startsWith('ai.'));
+    const totalLines = Object.values(bySource).reduce((s, v) => s + v.lines, 0);
+    const desc = aiSources.length > 0
+      ? `${aiSources.length} AI source${aiSources.length !== 1 ? 's' : ''} · ${totalLines} lines`
+      : `${totalEvents} events`;
+
+    return new SectionNode('contributions', 'Contributions', desc, 'chip');
+  }
+
+  private buildContributionSourceNodes(): ContributionSourceNode[] {
+    const store = getStore();
+    if (!store) return [];
+
+    const { bySource } = store.getSummary();
+    return Object.entries(bySource)
+      .sort(([, a], [, b]) => b.lines - a.lines)
+      .map(([source, { events, lines }]) => new ContributionSourceNode(source, events, lines));
+  }
+
+  private buildContributionFileNodes(source: string): ContributionFileNode[] {
+    const store = getStore();
+    if (!store) return [];
+
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    const events = store.getBySource(source);
+
+    const byFile = new Map<string, { events: number; lines: number }>();
+    for (const e of events) {
+      const cur = byFile.get(e.file) ?? { events: 0, lines: 0 };
+      byFile.set(e.file, { events: cur.events + 1, lines: cur.lines + (e.lines_delta ?? 0) });
+    }
+
+    return [...byFile.entries()]
+      .sort(([, a], [, b]) => b.lines - a.lines)
+      .map(([file, { events, lines }]) => new ContributionFileNode(file, events, lines, root));
+  }
+
   private buildFileNodes(): FileNode[] {
     const fileNodes: FileNode[] = [];
 
@@ -480,7 +551,6 @@ export class AnnotationTreeProvider implements vscode.TreeDataProvider<TreeNode>
 
   dispose(): void {
     this._onChange.dispose();
-    this._onDidChangeFileDecorations.dispose();
   }
 }
 
@@ -505,30 +575,3 @@ function formatCount(value: number, total: number): string {
   return `${value} / ${total} (${Math.round((value / total) * 100)}%)`;
 }
 
-function explorerDecoration(metrics: DocumentMetrics): vscode.FileDecoration | undefined {
-  if (metrics.hasAi && metrics.hasHuman) {
-    return new vscode.FileDecoration(
-      '◆',
-      'Provenance: mixed AI and human-authored content',
-      new vscode.ThemeColor('provenance.explorerMixedForeground'),
-    );
-  }
-
-  if (metrics.hasAi) {
-    return new vscode.FileDecoration(
-      '▲',
-      'Provenance: AI-authored content',
-      new vscode.ThemeColor('provenance.explorerAiForeground'),
-    );
-  }
-
-  if (metrics.hasHuman) {
-    return new vscode.FileDecoration(
-      '■',
-      'Provenance: human-authored content',
-      new vscode.ThemeColor('provenance.explorerHumanForeground'),
-    );
-  }
-
-  return undefined;
-}

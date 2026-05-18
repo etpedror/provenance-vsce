@@ -1,0 +1,3 @@
+# Provenance: union merge keeps all lines from both sides when two branches
+# both append AI contribution events — no manual conflict resolution needed.
+.pvnc/contributions_all.jsonl merge=union

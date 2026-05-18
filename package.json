@@ -2,7 +2,7 @@
   "name": "provenance",
   "displayName": "Provenance",
   "description": "Embed requirement and compliance traceability directly in your code. Keeps AI assistants from removing load-bearing logic they don't understand.",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "publisher": "etpedror",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -102,6 +102,14 @@
         "title": "Provenance: Reset AI assistant instructions"
       },
       {
+        "command": "provenance.removeInstructions",
+        "title": "Provenance: Remove AI Instructions"
+      },
+      {
+        "command": "provenance.logContribution",
+        "title": "Provenance: Log AI contribution"
+      },
+      {
         "command": "provenance.setupPvncConfig",
         "title": "Provenance: Set up workspace config"
       },
@@ -141,11 +149,6 @@
           "type": "boolean",
           "default": true,
           "description": "Show gutter icons next to lines covered by a provenance annotation."
-        },
-        "provenance.explorerFileBadges": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show opt-in Provenance badges in the VS Code Explorer for known files only. Files become known when opened or after running Analyze Workspace."
         },
         "provenance.warnOnDoNotChange": {
           "type": "boolean",
@@ -236,33 +239,6 @@
       }
     },
     "colors": [
-      {
-        "id": "provenance.explorerAiForeground",
-        "description": "Explorer badge foreground for known files with AI-authored provenance.",
-        "defaults": {
-          "dark": "#4EC9B0",
-          "light": "#267F68",
-          "highContrast": "#4EC9B0"
-        }
-      },
-      {
-        "id": "provenance.explorerHumanForeground",
-        "description": "Explorer badge foreground for known files with human-authored provenance.",
-        "defaults": {
-          "dark": "#CE9178",
-          "light": "#A31515",
-          "highContrast": "#CE9178"
-        }
-      },
-      {
-        "id": "provenance.explorerMixedForeground",
-        "description": "Explorer badge foreground for known files with mixed AI and human-authored provenance.",
-        "defaults": {
-          "dark": "#C586C0",
-          "light": "#795E26",
-          "highContrast": "#C586C0"
-        }
-      },
       {
         "id": "provenance.guardMarkerForeground",
         "description": "Colour used for Code Guard shield gutter icons and hover highlights.",

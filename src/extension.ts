@@ -5,24 +5,31 @@ import { DoNotChangeWatcher } from './providers/doNotChangeWatcher';
 import { AiContextCompletionProvider, TRIGGER_CHARACTERS } from './providers/completionProvider';
 import { AnnotationTreeProvider } from './providers/annotationTreeProvider';
 import { addAnnotation } from './commands/addAnnotation';
-import { resetInstructions, setupInstructions, writeProvenanceMd } from './commands/setupInstructions';
+import { resetInstructions, removeInstructions, setupInstructions } from './commands/setupInstructions';
 import { setupPvncConfig } from './commands/setupPvncConfig';
 import { removeGuard } from './commands/removeGuard';
 import { runCodeGuardCheck } from './commands/runCodeGuardCheck';
+import { logContribution, LogContributionArgs } from './commands/logContribution';
 import { invalidateCache } from './parser';
 import { invalidateGuardCache } from './guardParser';
 import { loadPvncConfig } from './pvncConfig';
 import { clearTicketCache, initTicketFetcher } from './ticketFetcher';
 import { GuardGutterProvider } from './providers/guardGutterProvider';
 import { GuardWatcher } from './providers/guardWatcher';
+import { GuardSaveWatcher } from './providers/guardSaveWatcher';
+import { initStore, getStore } from './contributions/store';
+import { installGitHooks } from './contributions/gitHooks';
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
 
-  // Keep .pvnc/PROVENANCE.md current on every activation — it is a managed
-  // artefact, not user content, so silent overwrite is intentional.
+  // Initialise the contribution store and git hooks on every activation.
   if (workspaceRoot) {
-    try { writeProvenanceMd(workspaceRoot); } catch { /* non-fatal */ }
+    try {
+      const store = initStore(workspaceRoot);
+      context.subscriptions.push({ dispose: () => store.dispose() });
+    } catch { /* non-fatal */ }
+    try { installGitHooks(workspaceRoot); } catch { /* non-fatal */ }
   }
 
   const pvncConfig = loadPvncConfig(workspaceRoot);
@@ -57,6 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Code Guard: gutter shield icons + region tint + edit warning.
   context.subscriptions.push(new GuardGutterProvider(context));
   context.subscriptions.push(new GuardWatcher());
+  context.subscriptions.push(new GuardSaveWatcher());
 
   // Sidebar annotations panel.
   const treeProvider = new AnnotationTreeProvider();
@@ -67,9 +75,11 @@ export function activate(context: vscode.ExtensionContext): void {
   treeProvider.setTreeView(treeView);
   context.subscriptions.push(
     treeView,
-    vscode.window.registerFileDecorationProvider(treeProvider),
     { dispose: () => treeProvider.dispose() },
   );
+
+  // Refresh the contributions section whenever the store picks up external changes.
+  getStore()?.on('updated', () => treeProvider.refresh());
 
   context.subscriptions.push(
     vscode.commands.registerCommand('provenance.refreshAnnotations', () =>
@@ -124,8 +134,8 @@ export function activate(context: vscode.ExtensionContext): void {
       treeProvider.refresh();
     }),
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('provenance.explorerFileBadges')) {
-        treeProvider.refreshDecorations();
+      if (e.affectsConfiguration('provenance')) {
+        treeProvider.refresh();
       }
     }),
     vscode.workspace.onDidChangeTextDocument(e => {
@@ -143,9 +153,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('provenance.setupInstructions', setupInstructions),
   );
 
-  // Reset command: force-refresh the pointer block in all agent instruction files
+  // Reset command: force-refresh the inline instructions block in all agent instruction files
   context.subscriptions.push(
     vscode.commands.registerCommand('provenance.resetInstructions', resetInstructions),
+  );
+
+  // Remove command: strip the Provenance instructions block from all agent instruction files
+  context.subscriptions.push(
+    vscode.commands.registerCommand('provenance.removeInstructions', removeInstructions),
+  );
+
+  // Contribution logging: AI agents call this to record their activity.
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'provenance.logContribution',
+      (args: LogContributionArgs) => logContribution(args),
+    ),
   );
 
   // Setup command: create .pvnc/config.json for this workspace

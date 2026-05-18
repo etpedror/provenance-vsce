@@ -1,12 +1,5 @@
 # Provenance extension — development instructions
 
-<!-- provenance-pointer -->
-> [!IMPORTANT]
-> **Provenance** — Read `.pvnc/PROVENANCE.md` before modifying any code in this repository.
-> That file contains annotation rules, Code Guard instructions, and what not to do.
-> It is auto-maintained by the Provenance VS Code extension — do not delete it.
-<!-- /provenance-pointer -->
-
 ## Provenance — standing instructions
 
 This project uses the `provenance` annotation convention to embed traceability
